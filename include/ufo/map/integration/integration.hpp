@@ -111,37 +111,47 @@ void insertPointCloud(Map& map, Cloud<P...> points, Point sensor_origin,
 			filterDistance(points, sensor_origin, params.max_range);
 		}
 	}
+	// std::cout << "filterZminMax " << std::endl;
+	// Cloud<P...> original_cloud;
+	// Cloud<P...> clipped_cloud;
+	// filterZminMax(points, sensor_origin, original_cloud, clipped_cloud);
+	//  std::cout << "clipped_cloud.size() " << clipped_cloud.size() << std::endl;
+	//  std::cout << "original_cloud.size() " << original_cloud.size() << std::endl;
+
 	params.timing[1].stop();
 
 	// Create integration points
 	params.timing[2].start();
-	auto ic = impl::toIntegrationCloud(map, std::move(points), params);
+	auto ic = impl::toIntegrationCloud(map, points, params);
+	// auto hit_ic = impl::toIntegrationCloud(map, original_cloud, params);
 	params.timing[2].stop();
 
-	auto f = std::async(std::launch::async, [&map, ic, sensor_origin, &params]() mutable {
+	auto f = std::async(std::launch::async, [&]() mutable {
 		params.timing[3].start();
-		if (!params.only_valid && 0 <= params.max_range) {
-			// Remove points that are further than max range
-#ifdef UFO_PARALLEL
-			if (params.parallel) {
-				filterDistance(std::execution::par_unseq, ic, sensor_origin, params.max_range);
-			} else
-#endif
-			{
-				filterDistance(ic, sensor_origin, params.max_range);
-			}
-		}
+		//  		if (!params.only_valid && 0 <= params.max_range) {
+		//  			// Remove points that are further than max range
+		//  #ifdef UFO_PARALLEL
+		//  			if (params.parallel) {
+		//  				filterDistance(std::execution::par_unseq, ic, sensor_origin,
+		//  params.max_range); 			} else #endif
+		//  			{
+		//  				filterDistance(ic, sensor_origin, params.max_range);
+		//  			}
+		//  		}
 		params.timing[3].stop();
 
 		// Integrate hits into the map
 		params.timing[4].start();
-		impl::integrateHits(map, std::move(ic), params);
+		// impl::integrateHits(map, hit_ic, params);
+		impl::integrateHits(map, ic, params);
 		params.timing[4].stop();
 	});
 
 	// Ray cast to get misses (free space)
 	params.timing[5].start();
-	auto misses = impl::getMisses(map, std::move(ic), sensor_origin, params);
+	// auto miss_ic = impl::toIntegrationCloud(map, clipped_cloud, params);
+	// auto misses  = impl::getMisses(map, miss_ic, sensor_origin, params);
+	auto misses = impl::getMisses(map, ic, sensor_origin, params);
 	params.timing[5].stop();
 
 	// Wait until all hits has been inserted
@@ -175,26 +185,27 @@ void insertPointCloud(Map& map, Cloud<P...> points, Point sensor_origin,
  * points and sensor_origin.
  * @param propagate Whether to update the inner nodes of the map.
  */
-template <class Map, class... P>
-void insertPointCloud(Map& map, Cloud<P...> points, Point sensor_origin,
-                      Pose6f frame_origin, IntegrationParams const& params,
-                      bool propagate = true)
-{
-#ifdef UFO_PARALLEL
-	if (params.parallel) {
-		applyTransform(std::execution::par_unseq, points, frame_origin);
-	} else
-#endif
-	{
-		applyTransform(points, frame_origin);
-	}
+// template <class Map, class... P>
+// void insertPointCloud(Map& map, Cloud<P...> points, Point sensor_origin,
+//                       Pose6f frame_origin, IntegrationParams const& params,
+//                       bool propagate = true)
+// {
+// #ifdef UFO_PARALLEL
+// 	if (params.parallel) {
+// 		applyTransform(std::execution::par_unseq, points, frame_origin);
+// 	} else
+// #endif
+// 	{
+// 		applyTransform(points, frame_origin);
+// 	}
 
-	// FIXME: What is correct?
-	// insertPointCloud(map, std::move(points),
-	// frame_origin.transform(sensor_origin), params,
-	//                  propagate);
-	insertPointCloud(map, std::move(points), sensor_origin, params, propagate);
-}
+// 	// FIXME: What is correct?
+// 	// insertPointCloud(map, std::move(points),
+// 	// frame_origin.transform(sensor_origin), params,
+// 	//                  propagate);
+// 	insertPointCloud(map, std::move(points), sensor_origin, params, propagate);
+// }
+
 }  // namespace ufo
 
 #endif  // UFO_MAP_INTEGRATION_HPP

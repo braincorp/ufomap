@@ -43,7 +43,7 @@
 #define UFO_MAP_PREDICATE_PREDICATES_HPP
 
 // STL
-#include <concepts>
+//  #include <concepts>
 #include <tuple>
 
 namespace ufo::pred
@@ -435,6 +435,10 @@ struct has_always_type<T, T> : std::true_type {
 template <typename Predicate, typename Predicates>
 using contains_always_predicate = has_always_type<Predicate, Predicates>;
 
+// template <typename Predicate, typename Predicates>
+// inline constexpr bool contains_always_predicate_v =
+//     contains_always_predicate<Predicate, Predicates>::value;
+
 template <typename Predicate, typename Predicates>
 inline constexpr bool contains_always_predicate_v =
     contains_always_predicate<Predicate, Predicates>::value;
@@ -443,13 +447,38 @@ inline constexpr bool contains_always_predicate_v =
 // Concepts
 //
 
-template <typename P, class Map, class Node>
-concept Predicate = requires(P p, Map m, Node n) {
-	                    {
-		                    ufo::pred::ValueCheck<P>::apply(p, m, n) &&
-		                        ufo::pred::InnerCheck<P>::apply(p, m, n)
-		                    } -> std::convertible_to<bool>;
-                    };
+// template <typename P, class Map, class Node>
+// concept Predicate = requires(P p, Map m, Node n) {
+// 	                    {
+// 		                    ufo::pred::ValueCheck<P>::apply(p, m, n) &&
+// 		                        ufo::pred::InnerCheck<P>::apply(p, m, n)
+// 		                    } -> std::convertible_to<bool>;
+//                     };
+
+template <typename P, typename Map, typename Node>
+class Predicate
+{
+ private:
+	template <typename U = P>
+	static auto test(int)
+	    -> decltype(static_cast<bool>(ValueCheck<U>::apply(std::declval<U>(),
+	                                                       std::declval<Map>(),
+	                                                       std::declval<Node>())) &&
+	                    static_cast<bool>(InnerCheck<U>::apply(std::declval<U>(),
+	                                                           std::declval<Map>(),
+	                                                           std::declval<Node>())),
+	                std::true_type{});
+
+	template <typename>
+	static std::false_type test(...);
+
+ public:
+	static constexpr bool value = decltype(test<P>(0))::value;
+};
+
+template <typename P, typename Map, typename Node>
+constexpr bool is_predicate_v = Predicate<P, Map, Node>::value;
+
 }  // namespace ufo::pred
 
 #endif  // UFO_MAP_PREDICATE_PREDICATES_HPP

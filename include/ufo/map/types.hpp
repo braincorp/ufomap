@@ -44,7 +44,7 @@
 
 // STL
 #include <array>
-#include <concepts>
+// #include <concepts>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -63,7 +63,7 @@ using depth_t         = std::uint8_t;
 using key_t           = std::uint_fast32_t;
 using code_t          = std::uint64_t;
 using occupancy_t     = float;
-using logit_t         = std::int8_t;
+using logit_t         = float;
 using time_t          = float;
 using color_t         = std::uint8_t;
 using label_t         = std::uint32_t;
@@ -124,8 +124,12 @@ enum MapType : mt_t {
 // Concepts
 //
 
+// template <class Map, MapType MT>
+// concept IsMapType = MT == (Map::mapType() & MT);
+
 template <class Map, MapType MT>
-concept IsMapType = MT == (Map::mapType() & MT);
+constexpr bool IsMapType = (MT == (Map::mapType() & MT));
+
 }  // namespace ufo
 
 #endif  // UFO_MAP_TYPES_HPP

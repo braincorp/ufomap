@@ -49,9 +49,9 @@
 #include <ufo/math/vector3.hpp>
 
 // STL
-#include <concepts>
+// #include <concepts>
 
-#include "ufo/map/intensity/intensity_map.hpp"
+// #include "ufo/map/intensity/intensity_map.hpp"
 
 namespace ufo
 {
@@ -89,42 +89,42 @@ struct Dynamic {
 // Concepts
 //
 
-template <class T>
-concept IsColor =
-    (std::derived_from<T, Color> || std::derived_from<typename T::value_type, Color>);
+// template <class T>
+// concept IsColor =
+//     (std::derived_from<T, Color> || std::derived_from<typename T::value_type, Color>);
 
-template <class... Ts>
-concept IsAnyColor = (IsColor<Ts> || ...);
+// template <class... Ts>
+// concept IsAnyColor = (IsColor<Ts> || ...);
 
-template <class T>
-concept IsIntensity = (std::derived_from<T, Intensity> ||
-                       std::derived_from<typename T::value_type, Intensity>);
+// template <class T>
+// concept IsIntensity = (std::derived_from<T, Intensity> ||
+//                        std::derived_from<typename T::value_type, Intensity>);
 
-template <class... Ts>
-concept IsAnyIntensity = (IsIntensityMap<Ts> || ...);
+// template <class... Ts>
+// concept IsAnyIntensity = (IsIntensityMap<Ts> || ...);
 
-template <class T>
-concept IsLabel = (std::derived_from<T, Label> || std::derived_from<T, Semantic> ||
-                   std::derived_from<typename T::value_type, Label> ||
-                   std::derived_from<typename T::value_type, Semantic>);
+// template <class T>
+// concept IsLabel = (std::derived_from<T, Label> || std::derived_from<T, Semantic> ||
+//                    std::derived_from<typename T::value_type, Label> ||
+//                    std::derived_from<typename T::value_type, Semantic>);
 
-template <class... Ts>
-concept IsAnyLabel = (IsLabel<Ts> || ...);
+// template <class... Ts>
+// concept IsAnyLabel = (IsLabel<Ts> || ...);
 
-template <class T>
-concept IsValue = (std::derived_from<T, Value> || std::derived_from<T, Semantic> ||
-                   std::derived_from<typename T::value_type, Value> ||
-                   std::derived_from<typename T::value_type, Semantic>);
+// template <class T>
+// concept IsValue = (std::derived_from<T, Value> || std::derived_from<T, Semantic> ||
+//                    std::derived_from<typename T::value_type, Value> ||
+//                    std::derived_from<typename T::value_type, Semantic>);
 
-template <class... Ts>
-concept IsAnyValue = (IsValue<Ts> || ...);
+// template <class... Ts>
+// concept IsAnyValue = (IsValue<Ts> || ...);
 
-template <class T>
-concept IsSemantic = (std::derived_from<T, Semantic> ||
-                      std::derived_from<typename T::value_type, Semantic>);
+// template <class T>
+// concept IsSemantic = (std::derived_from<T, Semantic> ||
+//                       std::derived_from<typename T::value_type, Semantic>);
 
-template <class... Ts>
-concept IsAnySemantic = (IsSemantic<Ts> || ...);
+// template <class... Ts>
+// concept IsAnySemantic = (IsSemantic<Ts> || ...);
 
 }  // namespace ufo
 

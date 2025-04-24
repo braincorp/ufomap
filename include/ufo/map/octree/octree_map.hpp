@@ -146,8 +146,8 @@ class OctreeMap
 	// Swap
 	//
 
-	void swap(OctreeMap& other) noexcept(noexcept(
-	    Octree<OctreeMap>::swap(other)) && noexcept((Maps<OctreeMap, 8>::swap(other), ...)))
+	void swap(OctreeMap& other) noexcept(noexcept(Octree<OctreeMap>::swap(other)) &&
+	                                     noexcept((Maps<OctreeMap, 8>::swap(other), ...)))
 	{
 		Octree<OctreeMap>::swap(other);
 		(Maps<OctreeMap, 8>::swap(other), ...);
@@ -261,86 +261,96 @@ class OctreeMap
 		return (Maps<OctreeMap, 8>::memoryNodeBlock() + ...);
 	}
 
-	[[nodiscard]] std::size_t serializedSize(std::ranges::input_range auto r, bool compress,
-	                                         mt_t data) const
-	{
-		return (serializedSize<Maps<OctreeMap, 8>>(r, compress, data) + ...);
-	}
+	// template <typename R>
+	// typename std::enable_if<
+	// 	std::is_same<decltype(std::begin(std::declval<R>())), typename R::iterator>::value,
+	// 	std::size_t>::type
+	// serializedSize(R const& r, bool compress, mt_t data) const
+	// {
+	// 	std::size_t total = 0;
+	// 	total += serializedSize<Maps<OctreeMap, 8>>(r, compress, data);
+	// 	return total;
+	// }
 
-	void readNodes(std::istream& in, std::ranges::input_range auto r, bool const compressed,
-	               mt_t map_types)
-	{
-		auto cur_pos = in.tellg();
-		in.seekg(0, std::ios_base::end);
-		auto end_pos = in.tellg();
-		in.seekg(cur_pos);
+	// void readNodes(std::istream& in, std::ranges::input_range auto r, bool const
+	// compressed,
+	//                mt_t map_types)
+	// {
+	// 	auto cur_pos = in.tellg();
+	// 	in.seekg(0, std::ios_base::end);
+	// 	auto end_pos = in.tellg();
+	// 	in.seekg(cur_pos);
 
-		map_types &= mapType();
+	// 	map_types &= mapType();
 
-		Buffer buf;
-		Buffer compress_buf;
-		while (in.tellg() != end_pos && in.good()) {
-			MapType       mt;
-			std::uint64_t data_size;
+	// 	Buffer buf;
+	// 	Buffer compress_buf;
+	// 	while (in.tellg() != end_pos && in.good()) {
+	// 		MapType       mt;
+	// 		std::uint64_t data_size;
 
-			in.read(reinterpret_cast<char*>(&mt), sizeof(mt));
-			in.read(reinterpret_cast<char*>(&data_size), sizeof(data_size));
+	// 		in.read(reinterpret_cast<char*>(&mt), sizeof(mt));
+	// 		in.read(reinterpret_cast<char*>(&data_size), sizeof(data_size));
 
-			if (mt & map_types) {
-				(readNodes<Maps<OctreeMap, 8>>(in, buf, compress_buf, r, mt, data_size,
-				                               compressed) ||
-				 ...);
-			} else {
-				// Skip forward
-				in.seekg(static_cast<std::istream::off_type>(data_size), std::istream::cur);
-			}
-		}
-	}
+	// 		if (mt & map_types) {
+	// 			(readNodes<Maps<OctreeMap, 8>>(in, buf, compress_buf, r, mt, data_size,
+	// 			                               compressed) ||
+	// 			 ...);
+	// 		} else {
+	// 			// Skip forward
+	// 			in.seekg(static_cast<std::istream::off_type>(data_size), std::istream::cur);
+	// 		}
+	// 	}
+	// }
 
-	void readNodes(ReadBuffer& in, std::ranges::input_range auto r, bool const compressed,
-	               mt_t map_types)
-	{
-		map_types &= mapType();
+	// void readNodes(ReadBuffer& in, std::ranges::input_range auto r, bool const
+	// compressed,
+	//                mt_t map_types)
+	// {
+	// 	map_types &= mapType();
 
-		Buffer compress_buf;
-		while (in.readIndex() < in.size()) {
-			MapType       mt;
-			std::uint64_t data_size;
+	// 	Buffer compress_buf;
+	// 	while (in.readIndex() < in.size()) {
+	// 		MapType       mt;
+	// 		std::uint64_t data_size;
 
-			in.read(&mt, sizeof(mt));
-			in.read(&data_size, sizeof(data_size));
+	// 		in.read(&mt, sizeof(mt));
+	// 		in.read(&data_size, sizeof(data_size));
 
-			std::uint64_t next_index = in.readIndex() + data_size;
+	// 		std::uint64_t next_index = in.readIndex() + data_size;
 
-			if (mt & map_types) {
-				(readNodes<Maps<OctreeMap, 8>>(in, compress_buf, r, mt, data_size, compressed) ||
-				 ...);
-			}
+	// 		if (mt & map_types) {
+	// 			(readNodes<Maps<OctreeMap, 8>>(in, compress_buf, r, mt, data_size, compressed)
+	// ||
+	// 			 ...);
+	// 		}
 
-			// Skip forward
-			in.setReadIndex(next_index);
-		}
-	}
+	// 		// Skip forward
+	// 		in.setReadIndex(next_index);
+	// 	}
+	// }
 
-	void writeNodes(std::ostream& out, std::ranges::input_range auto r, bool const compress,
-	                mt_t const map_types, int const compression_acceleration_level,
-	                int const compression_level) const
-	{
-		Buffer buf;
-		(writeNodes<Maps<OctreeMap, 8>>(out, buf, r, compress, map_types,
-		                                compression_acceleration_level, compression_level),
-		 ...);
-	}
+	// void writeNodes(std::ostream& out, std::ranges::input_range auto r, bool const
+	// compress,
+	//                 mt_t const map_types, int const compression_acceleration_level,
+	//                 int const compression_level) const
+	// {
+	// 	Buffer buf;
+	// 	(writeNodes<Maps<OctreeMap, 8>>(out, buf, r, compress, map_types,
+	// 	                                compression_acceleration_level, compression_level),
+	// 	 ...);
+	// }
 
-	void writeNodes(WriteBuffer& out, std::ranges::input_range auto r, bool const compress,
-	                mt_t const map_types, int const compression_acceleration_level,
-	                int const compression_level) const
-	{
-		out.reserve(out.size() + serializedSize(r, compress, map_types));
-		(writeNodes<Maps<OctreeMap, 8>>(out, r, compress, map_types,
-		                                compression_acceleration_level, compression_level),
-		 ...);
-	}
+	// void writeNodes(WriteBuffer& out, std::ranges::input_range auto r, bool const
+	// compress,
+	//                 mt_t const map_types, int const compression_acceleration_level,
+	//                 int const compression_level) const
+	// {
+	// 	out.reserve(out.size() + serializedSize(r, compress, map_types));
+	// 	(writeNodes<Maps<OctreeMap, 8>>(out, r, compress, map_types,
+	// 	                                compression_acceleration_level, compression_level),
+	// 	 ...);
+	// }
 
 	//
 	// Dot file info
@@ -377,117 +387,119 @@ class OctreeMap
 	// Input/output (read/write)
 	//
 
-	template <class Map>
-	std::size_t serializedSize(std::ranges::input_range auto r, bool compress,
-	                           mt_t map_types) const
-	{
-		if (Map::mapType() & map_types) {
-			return 0;
-		}
+	// template <class Map>
+	// std::size_t serializedSize(std::ranges::input_range auto r, bool compress,
+	//                            mt_t map_types) const
+	// {
+	// 	if (Map::mapType() & map_types) {
+	// 		return 0;
+	// 	}
 
-		if (compress) {
-			return sizeof(MapType) + sizeof(std::uint64_t) + sizeof(std::uint64_t) +
-			       maxSizeCompressed(Map::serializedSize(r));
-		} else {
-			return sizeof(MapType) + sizeof(std::uint64_t) + Map::serializedSize(r);
-		}
-	}
+	// 	if (compress) {
+	// 		return sizeof(MapType) + sizeof(std::uint64_t) + sizeof(std::uint64_t) +
+	// 		       maxSizeCompressed(Map::serializedSize(r));
+	// 	} else {
+	// 		return sizeof(MapType) + sizeof(std::uint64_t) + Map::serializedSize(r);
+	// 	}
+	// }
 
-	template <class Map>
-	bool readNodes(std::istream& in, Buffer& buf, Buffer& compress_buf,
-	               std::ranges::input_range auto r, MapType const mt,
-	               uint64_t const data_size, bool const compressed)
-	{
-		if (Map::mapType() != mt) {
-			return false;
-		}
+	// template <class Map>
+	// bool readNodes(std::istream& in, Buffer& buf, Buffer& compress_buf,
+	//                std::ranges::input_range auto r, MapType const mt,
+	//                uint64_t const data_size, bool const compressed)
+	// {
+	// 	if (Map::mapType() != mt) {
+	// 		return false;
+	// 	}
 
-		buf.clear();
-		// TODO: Implement better (should probably be resize?)
-		buf.reserve(data_size);
-		in.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(data_size));
-		return readNodes(buf, compress_buf, r, mt, data_size, compressed);
-	}
+	// 	buf.clear();
+	// 	// TODO: Implement better (should probably be resize?)
+	// 	buf.reserve(data_size);
+	// 	in.read(reinterpret_cast<char*>(buf.data()),
+	// static_cast<std::streamsize>(data_size)); 	return readNodes(buf, compress_buf, r, mt,
+	// data_size, compressed);
+	// }
 
-	template <class Map>
-	bool readNodes(ReadBuffer& in, Buffer& compress_buf, std::ranges::input_range auto r,
-	               MapType const mt, uint64_t const data_size, bool const compressed)
-	{
-		if (Map::mapType() != mt) {
-			return false;
-		}
+	// template <class Map>
+	// bool readNodes(ReadBuffer& in, Buffer& compress_buf, std::ranges::input_range auto r,
+	//                MapType const mt, uint64_t const data_size, bool const compressed)
+	// {
+	// 	if (Map::mapType() != mt) {
+	// 		return false;
+	// 	}
 
-		if (compressed) {
-			compress_buf.clear();
+	// 	if (compressed) {
+	// 		compress_buf.clear();
 
-			std::uint64_t uncompressed_size;
-			in.read(&uncompressed_size, sizeof(uncompressed_size));
+	// 		std::uint64_t uncompressed_size;
+	// 		in.read(&uncompressed_size, sizeof(uncompressed_size));
 
-			decompressData(in, compress_buf, uncompressed_size);
+	// 		decompressData(in, compress_buf, uncompressed_size);
 
-			Map::readNodes(compress_buf, r);
-		} else {
-			Map::readNodes(in, r);
-		}
+	// 		Map::readNodes(compress_buf, r);
+	// 	} else {
+	// 		Map::readNodes(in, r);
+	// 	}
 
-		return true;
-	}
+	// 	return true;
+	// }
 
-	template <class Map>
-	void writeNodes(std::ostream& out, Buffer& buf, std::ranges::input_range auto r,
-	                bool const compress, mt_t const map_types,
-	                int const compression_acceleration_level,
-	                int const compression_level) const
-	{
-		if (0 == (Map::mapType() & map_types)) {
-			return;
-		}
+	// template <class Map>
+	// void writeNodes(std::ostream& out, Buffer& buf, std::ranges::input_range auto r,
+	//                 bool const compress, mt_t const map_types,
+	//                 int const compression_acceleration_level,
+	//                 int const compression_level) const
+	// {
+	// 	if (0 == (Map::mapType() & map_types)) {
+	// 		return;
+	// 	}
 
-		buf.clear();
-		writeNodes(buf, r, compress, compression_acceleration_level, compression_level);
+	// 	buf.clear();
+	// 	writeNodes(buf, r, compress, compression_acceleration_level, compression_level);
 
-		if (!buf.empty()) {
-			out.write(reinterpret_cast<char const*>(buf.data()),
-			          static_cast<std::streamsize>(buf.size()));
-		}
-	}
+	// 	if (!buf.empty()) {
+	// 		out.write(reinterpret_cast<char const*>(buf.data()),
+	// 		          static_cast<std::streamsize>(buf.size()));
+	// 	}
+	// }
 
-	template <class Map>
-	void writeNodes(WriteBuffer& out, std::ranges::input_range auto r, bool const compress,
-	                mt_t const map_types, int const compression_acceleration_level,
-	                int const compression_level) const
-	{
-		constexpr MapType mt = Map::mapType();
-		if constexpr (MapType::NONE == mt) {
-			return;
-		}
+	// template <class Map>
+	// void writeNodes(WriteBuffer& out, std::ranges::input_range auto r, bool const
+	// compress,
+	//                 mt_t const map_types, int const compression_acceleration_level,
+	//                 int const compression_level) const
+	// {
+	// 	constexpr MapType mt = Map::mapType();
+	// 	if constexpr (MapType::NONE == mt) {
+	// 		return;
+	// 	}
 
-		if (0 == (mt & map_types)) {
-			return;
-		}
+	// 	if (0 == (mt & map_types)) {
+	// 		return;
+	// 	}
 
-		out.write(&mt, sizeof(mt));
+	// 	out.write(&mt, sizeof(mt));
 
-		std::uint64_t size;
-		auto          size_index = out.writeIndex();
-		out.setWriteIndex(size_index + sizeof(size));
+	// 	std::uint64_t size;
+	// 	auto          size_index = out.writeIndex();
+	// 	out.setWriteIndex(size_index + sizeof(size));
 
-		if (compress) {
-			Buffer data;
-			data.reserve(Map::serializedSize(r));
-			Map::writeNodes(data, r);
+	// 	if (compress) {
+	// 		Buffer data;
+	// 		data.reserve(Map::serializedSize(r));
+	// 		Map::writeNodes(data, r);
 
-			compressData(data, out, compression_acceleration_level, compression_level);
-		} else {
-			Map::writeNodes(out, r);
-		}
+	// 		compressData(data, out, compression_acceleration_level, compression_level);
+	// 	} else {
+	// 		Map::writeNodes(out, r);
+	// 	}
 
-		auto cur_index = out.writeIndex();
-		size           = cur_index - (size_index + sizeof(size));
-		out.setWriteIndex(size_index);
-		out.write(&size, sizeof(size));
-		out.setWriteIndex(cur_index);
-	}
+	// 	auto cur_index = out.writeIndex();
+	// 	size           = cur_index - (size_index + sizeof(size));
+	// 	out.setWriteIndex(size_index);
+	// 	out.write(&size, sizeof(size));
+	// 	out.setWriteIndex(cur_index);
+	// }
 
 	//
 	// Dot file info

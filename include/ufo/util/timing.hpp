@@ -296,7 +296,7 @@ class Timing : public Timer
 
 	Timing(std::string const&                                          tag,
 	       std::initializer_list<std::pair<std::size_t const, Timing>> init)
-	    : tag_(tag), timer_(init)
+	    : timer_(init), tag_(tag)
 	{
 	}
 
@@ -406,7 +406,7 @@ class Timing : public Timer
 		                                     whiteColor()};
 
 		for (auto const& [n, t] : timer_) {
-			i += level <= group_colors_level;
+			i += static_cast<std::size_t>(level) <= group_colors_level;
 			std::string tag = std::string(2 * level, ' ') + std::to_string(n) + ". " + t.tag();
 			printf("%s%s%-*s\t%.*f\t%.*f\t%.*f\t%.*f\t%.*f\t%.*f\t%lu%s\n",
 			       bold ? "\033[1m" : "", random_colors ? RC[i % RC.size()] : t.color().c_str(),

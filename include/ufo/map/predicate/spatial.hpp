@@ -43,7 +43,7 @@
 #define UFO_MAP_PREDICATE_SPATIAL_HPP
 
 // UFO
-#include <bits/ranges_algo.h>
+//  #include <bits/ranges_algo.h>
 
 #include <ufo/geometry/contains.hpp>
 #include <ufo/geometry/intersects.hpp>
@@ -91,8 +91,8 @@ struct Spatial {
 	// {
 	// }
 
-	template <std::input_iterator I, std::sentinel_for<I> S>
-	constexpr Spatial(I first, S last) : geometries(first, last)
+	template <typename Iterator, typename Sentinel>
+	constexpr Spatial(Iterator first, Sentinel last) : geometries(first, last)
 	{
 	}
 
@@ -109,17 +109,18 @@ struct Spatial {
 // 	return Spatial<Geometry, SpatialTag::CONTAINS, false>(geometry);
 // }
 
-template <std::input_iterator I, std::sentinel_for<I> S>
-constexpr auto Contains(I first, S last)
+// template <std::input_iterator I, std::sentinel_for<I> S>
+template <typename Iterator, typename Sentinel>
+constexpr auto Contains(Iterator first, Sentinel last)
 {
-	return Spatial<typename std::iterator_traits<I>::value_type, SpatialTag::CONTAINS,
-	               false>(first, last);
+	return Spatial<typename std::iterator_traits<Iterator>::value_type,
+	               SpatialTag::CONTAINS, false>(first, last);
 }
 
-template <std::ranges::input_range R>
-constexpr auto Contains(R&& r)
+template <typename Range>
+auto Contains(Range&& r)
 {
-	return Contains(std::ranges::begin(r), std::ranges::end(r));
+	return Contains(std::begin(r), std::end(r));
 }
 
 template <class Geometry>
@@ -134,17 +135,17 @@ constexpr auto Contains(std::initializer_list<Geometry> geometries)
 // 	return Spatial<Geometry, SpatialTag::DISJOINT, false>(geometry);
 // }
 
-template <std::input_iterator I, std::sentinel_for<I> S>
-constexpr auto Disjoint(I first, S last)
+template <typename InputIt>
+auto Disjoint(InputIt first, InputIt last)
 {
-	return Spatial<typename std::iterator_traits<I>::value_type, SpatialTag::DISJOINT,
+	return Spatial<typename std::iterator_traits<InputIt>::value_type, SpatialTag::DISJOINT,
 	               false>(first, last);
 }
 
-template <std::ranges::input_range R>
-constexpr auto Disjoint(R&& r)
+template <typename Range>
+constexpr auto Disjoint(Range&& r)
 {
-	return Disjoint(std::ranges::begin(r), std::ranges::end(r));
+	return Disjoint(std::begin(r), std::end(r));
 }
 
 template <class Geometry>
@@ -159,21 +160,21 @@ constexpr auto Disjoint(std::initializer_list<Geometry> geometries)
 // 	return Spatial<Geometry, SpatialTag::INTERSECTS, false>(geometry);
 // }
 
-template <std::input_iterator I, std::sentinel_for<I> S>
-constexpr auto Intersects(I first, S last)
+template <typename InputIt>
+auto Intersects(InputIt first, InputIt last)
 {
-	return Spatial<typename std::iterator_traits<I>::value_type, SpatialTag::INTERSECTS,
-	               false>(first, last);
+	return Spatial<typename std::iterator_traits<InputIt>::value_type,
+	               SpatialTag::INTERSECTS, false>(first, last);
 }
 
-template <std::ranges::input_range R>
-constexpr auto Intersects(R&& r)
+template <typename Range>
+auto Intersects(Range&& r)
 {
-	return Intersects(std::ranges::begin(r), std::ranges::end(r));
+	return Intersects(std::begin(r), std::end(r));
 }
 
-template <class Geometry>
-constexpr auto Intersects(std::initializer_list<Geometry> geometries)
+template <typename Geometry>
+auto Intersects(std::initializer_list<Geometry> geometries)
 {
 	return Spatial<Geometry, SpatialTag::INTERSECTS, false>(geometries);
 }
@@ -184,21 +185,24 @@ constexpr auto Intersects(std::initializer_list<Geometry> geometries)
 // 	return Spatial<Geometry, SpatialTag::WITHIN, false>(geometry);
 // }
 
-template <std::input_iterator I, std::sentinel_for<I> S>
-constexpr auto Within(I first, S last)
+// Iterator-based version
+template <typename InputIt>
+auto Within(InputIt first, InputIt last)
 {
-	return Spatial<typename std::iterator_traits<I>::value_type, SpatialTag::WITHIN, false>(
-	    first, last);
+	return Spatial<typename std::iterator_traits<InputIt>::value_type, SpatialTag::WITHIN,
+	               false>(first, last);
 }
 
-template <std::ranges::input_range R>
-constexpr auto Within(R&& r)
+// Range-based version (manually resolves begin/end to support non-std ranges)
+template <typename Range>
+auto Within(Range&& r)
 {
-	return Within(std::ranges::begin(r), std::ranges::end(r));
+	return Within(std::begin(r), std::end(r));
 }
 
-template <class Geometry>
-constexpr auto Within(std::initializer_list<Geometry> geometries)
+// Initializer list version
+template <typename Geometry>
+auto Within(std::initializer_list<Geometry> geometries)
 {
 	return Spatial<Geometry, SpatialTag::WITHIN, false>(geometries);
 }
@@ -256,9 +260,8 @@ struct SpatialCall<SpatialTag::CONTAINS> {
 	template <class G1, class G2>
 	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
 	{
-		// TODO: Implement correct
-		return std::ranges::all_of(g2, [&g1](auto const& g) { return contains(g1, g); });
-		// return contains(g1, g2);
+		return std::all_of(g2.begin(), g2.end(),
+		                   [&g1](auto const& g) { return contains(g1, g); });
 	}
 };
 
@@ -267,9 +270,8 @@ struct SpatialCall<SpatialTag::DISJOINT> {
 	template <class G1, class G2>
 	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
 	{
-		// TODO: Implement correct
-		return std::ranges::all_of(g2, [&g1](auto const& g) { return !intersects(g1, g); });
-		// return !intersects(g1, g2);
+		return std::all_of(g2.begin(), g2.end(),
+		                   [&g1](auto const& g) { return !intersects(g1, g); });
 	}
 };
 
@@ -278,9 +280,8 @@ struct SpatialCall<SpatialTag::INTERSECTS> {
 	template <class G1, class G2>
 	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
 	{
-		// FIXME: Make sure that it is correct
-		return std::ranges::any_of(g2, [&g1](auto const& g) { return intersects(g1, g); });
-		// return intersects(g1, g2);
+		return std::any_of(g2.begin(), g2.end(),
+		                   [&g1](auto const& g) { return intersects(g1, g); });
 	}
 };
 
@@ -289,9 +290,8 @@ struct SpatialCall<SpatialTag::WITHIN> {
 	template <class G1, class G2>
 	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
 	{
-		// TODO: Implement correct
-		return std::ranges::any_of(g2, [&g1](auto const& g) { return contains(g, g1); });
-		// return contains(g2, g1);
+		return std::any_of(g2.begin(), g2.end(),
+		                   [&g1](auto const& g) { return contains(g, g1); });
 	}
 };
 

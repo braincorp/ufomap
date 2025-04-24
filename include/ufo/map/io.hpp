@@ -72,8 +72,8 @@ struct FileHeader : FileOptions {
 	static constexpr std::uint8_t     CURRENT_MAJOR = 1;
 	static constexpr std::uint8_t     CURRENT_MINOR = 0;
 	static constexpr std::uint8_t     CURRENT_PATCH = 0;
-	static constexpr std::uint8_t     IS_LITTLE_ENDIAN =
-	    std::endian::native == std::endian::little;
+	// static constexpr std::uint8_t     IS_LITTLE_ENDIAN =
+	//     std::endian::native == std::endian::little;
 
 	std::uint8_t major;
 	std::uint8_t minor;

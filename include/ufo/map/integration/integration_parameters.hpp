@@ -61,7 +61,7 @@ enum class DownSamplingMethod { NONE, CENTER, CENTROID, UNIFORM };
 struct IntegrationParams {
 	DownSamplingMethod down_sampling_method{DownSamplingMethod::CENTER};
 
-	depth_t hit_depth{};
+	// depth_t hit_depth{};
 	depth_t miss_depth{};
 	depth_t ray_casting_depth{};
 

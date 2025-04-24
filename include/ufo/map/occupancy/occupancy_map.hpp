@@ -263,15 +263,15 @@ class OccupancyMap
 	// Update occupancy logit
 	//
 
-	void updateOccupancyLogit(Index node, int change)
+	void updateOccupancyLogit(Index node, logit_t change)
 	{
 		derived().apply(
 		    node,
 		    [this, change](Index node) {
 			    logit_[node.pos][node.offset] =
 			        std::clamp(logit_[node.pos][node.offset] + change,
-			                   static_cast<int>(std::numeric_limits<logit_t>::min()),
-			                   static_cast<int>(std::numeric_limits<logit_t>::max()));
+			                   static_cast<logit_t>(std::numeric_limits<logit_t>::lowest()),
+			                   static_cast<logit_t>(std::numeric_limits<logit_t>::max()));
 
 			    contains_unknown_[node.pos][node.offset] =
 			        isUnknown(logit_[node.pos][node.offset]);
@@ -283,8 +283,8 @@ class OccupancyMap
 			    for (offset_t i{}; N != i; ++i) {
 				    logit_[pos][i] =
 				        std::clamp(logit_[pos][i] + change,
-				                   static_cast<int>(std::numeric_limits<logit_t>::min()),
-				                   static_cast<int>(std::numeric_limits<logit_t>::max()));
+				                   static_cast<logit_t>(std::numeric_limits<logit_t>::lowest()),
+				                   static_cast<logit_t>(std::numeric_limits<logit_t>::max()));
 
 				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
 				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
@@ -293,53 +293,53 @@ class OccupancyMap
 		    });
 	}
 
-	void updateOccupancyLogit(Index node, std::invocable<logit_t> auto unary_op)
-	{
-		derived().apply(
-		    node,
-		    [this, unary_op](Index node) {
-			    logit_[node.pos][node.offset] = unary_op(logit_[node.pos][node.offset]);
+	// void updateOccupancyLogit(Index node, std::invocable<logit_t> auto unary_op)
+	// {
+	// 	derived().apply(
+	// 	    node,
+	// 	    [this, unary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = unary_op(logit_[node.pos][node.offset]);
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, unary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = unary_op(logit_[pos][i]);
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, unary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = unary_op(logit_[pos][i]);
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    });
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    });
+	// }
 
-	void updateOccupancyLogit(Index node, std::invocable<Index, logit_t> auto binary_op)
-	{
-		derived().apply(
-		    node,
-		    [this, binary_op](Index node) {
-			    logit_[node.pos][node.offset] = binary_op(node, logit_[node.pos][node.offset]);
+	// void updateOccupancyLogit(Index node, std::invocable<Index, logit_t> auto binary_op)
+	// {
+	// 	derived().apply(
+	// 	    node,
+	// 	    [this, binary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = binary_op(node, logit_[node.pos][node.offset]);
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, binary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = binary_op(Index(pos, i), logit_[pos][i]);
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, binary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = binary_op(Index(pos, i), logit_[pos][i]);
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    });
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    });
+	// }
 
 	Node updateOccupancyLogit(Node node, int change, bool propagate = true)
 	{
@@ -348,8 +348,8 @@ class OccupancyMap
 		    [this, change](Index node) {
 			    logit_[node.pos][node.offset] =
 			        std::clamp(logit_[node.pos][node.offset] + change,
-			                   static_cast<int>(std::numeric_limits<logit_t>::min()),
-			                   static_cast<int>(std::numeric_limits<logit_t>::max()));
+			                   static_cast<logit_t>(std::numeric_limits<logit_t>::lowest()),
+			                   static_cast<logit_t>(std::numeric_limits<logit_t>::max()));
 
 			    contains_unknown_[node.pos][node.offset] =
 			        isUnknown(logit_[node.pos][node.offset]);
@@ -361,8 +361,8 @@ class OccupancyMap
 			    for (offset_t i{}; N != i; ++i) {
 				    logit_[pos][i] =
 				        std::clamp(logit_[pos][i] + change,
-				                   static_cast<int>(std::numeric_limits<logit_t>::min()),
-				                   static_cast<int>(std::numeric_limits<logit_t>::max()));
+				                   static_cast<logit_t>(std::numeric_limits<logit_t>::lowest()),
+				                   static_cast<logit_t>(std::numeric_limits<logit_t>::max()));
 
 				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
 				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
@@ -372,57 +372,57 @@ class OccupancyMap
 		    propagate);
 	}
 
-	Node updateOccupancyLogit(Node node, std::invocable<logit_t> auto unary_op,
-	                          bool propagate = true)
-	{
-		return derived().apply(
-		    node,
-		    [this, unary_op](Index node) {
-			    logit_[node.pos][node.offset] = unary_op(logit_[node.pos][node.offset]);
+	// Node updateOccupancyLogit(Node node, std::invocable<logit_t> auto unary_op,
+	//                           bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    node,
+	// 	    [this, unary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = unary_op(logit_[node.pos][node.offset]);
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, unary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = unary_op(logit_[pos][i]);
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, unary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = unary_op(logit_[pos][i]);
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
-	Node updateOccupancyLogit(Node node, std::invocable<Index, logit_t> auto binary_op,
-	                          bool propagate = true)
-	{
-		return derived().apply(
-		    node,
-		    [this, binary_op](Index node) {
-			    logit_[node.pos][node.offset] = binary_op(node, logit_[node.pos][node.offset]);
+	// Node updateOccupancyLogit(Node node, std::invocable<Index, logit_t> auto binary_op,
+	//                           bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    node,
+	// 	    [this, binary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = binary_op(node, logit_[node.pos][node.offset]);
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, binary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = binary_op(Index(pos, i), logit_[pos][i]);
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, binary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = binary_op(Index(pos, i), logit_[pos][i]);
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
 	Node updateOccupancyLogit(Code code, int change, bool propagate = true)
 	{
@@ -431,8 +431,8 @@ class OccupancyMap
 		    [this, change](Index node) {
 			    logit_[node.pos][node.offset] =
 			        std::clamp(logit_[node.pos][node.offset] + change,
-			                   static_cast<int>(std::numeric_limits<logit_t>::min()),
-			                   static_cast<int>(std::numeric_limits<logit_t>::max()));
+			                   static_cast<logit_t>(std::numeric_limits<logit_t>::lowest()),
+			                   static_cast<logit_t>(std::numeric_limits<logit_t>::max()));
 
 			    contains_unknown_[node.pos][node.offset] =
 			        isUnknown(logit_[node.pos][node.offset]);
@@ -444,8 +444,8 @@ class OccupancyMap
 			    for (offset_t i{}; N != i; ++i) {
 				    logit_[pos][i] =
 				        std::clamp(logit_[pos][i] + change,
-				                   static_cast<int>(std::numeric_limits<logit_t>::min()),
-				                   static_cast<int>(std::numeric_limits<logit_t>::max()));
+				                   static_cast<logit_t>(std::numeric_limits<logit_t>::lowest()),
+				                   static_cast<logit_t>(std::numeric_limits<logit_t>::max()));
 
 				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
 				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
@@ -455,74 +455,74 @@ class OccupancyMap
 		    propagate);
 	}
 
-	Node updateOccupancyLogit(Code code, std::invocable<logit_t> auto unary_op,
-	                          bool propagate = true)
-	{
-		return derived().apply(
-		    code,
-		    [this, unary_op](Index node) {
-			    logit_[node.pos][node.offset] = unary_op(logit_[node.pos][node.offset]);
+	// Node updateOccupancyLogit(Code code, std::invocable<logit_t> auto unary_op,
+	//                           bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    code,
+	// 	    [this, unary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = unary_op(logit_[node.pos][node.offset]);
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, unary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = unary_op(logit_[pos][i]);
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, unary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = unary_op(logit_[pos][i]);
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
-	Node updateOccupancyLogit(Code code, std::invocable<Index, logit_t> auto binary_op,
-	                          bool propagate = true)
-	{
-		return derived().apply(
-		    code,
-		    [this, binary_op](Index node) {
-			    logit_[node.pos][node.offset] = binary_op(node, logit_[node.pos][node.offset]);
+	// Node updateOccupancyLogit(Code code, std::invocable<Index, logit_t> auto binary_op,
+	//                           bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    code,
+	// 	    [this, binary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = binary_op(node, logit_[node.pos][node.offset]);
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, binary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = binary_op(Index(pos, i), logit_[pos][i]);
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, binary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = binary_op(Index(pos, i), logit_[pos][i]);
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
 	Node updateOccupancyLogit(Key key, int change, bool propagate = true)
 	{
 		return updateOccupancyLogit(derived().toCode(key), change, propagate);
 	}
 
-	Node updateOccupancyLogit(Key key, std::invocable<logit_t> auto unary_op,
-	                          bool propagate = true)
-	{
-		return updateOccupancyLogit(derived().toCode(key), unary_op, propagate);
-	}
+	// Node updateOccupancyLogit(Key key, std::invocable<logit_t> auto unary_op,
+	//                           bool propagate = true)
+	// {
+	// 	return updateOccupancyLogit(derived().toCode(key), unary_op, propagate);
+	// }
 
-	Node updateOccupancyLogit(Key key, std::invocable<Index, logit_t> auto binary_op,
-	                          bool propagate = true)
-	{
-		return updateOccupancyLogit(derived().toCode(key), binary_op, propagate);
-	}
+	// Node updateOccupancyLogit(Key key, std::invocable<Index, logit_t> auto binary_op,
+	//                           bool propagate = true)
+	// {
+	// 	return updateOccupancyLogit(derived().toCode(key), binary_op, propagate);
+	// }
 
 	Node updateOccupancyLogit(Point coord, int change, bool propagate = true,
 	                          depth_t depth = 0)
@@ -530,17 +530,17 @@ class OccupancyMap
 		return updateOccupancyLogit(derived().toCode(coord, depth), change, propagate);
 	}
 
-	Node updateOccupancyLogit(Point coord, std::invocable<logit_t> auto unary_op,
-	                          bool propagate = true, depth_t depth = 0)
-	{
-		return updateOccupancyLogit(derived().toCode(coord, depth), unary_op, propagate);
-	}
+	// Node updateOccupancyLogit(Point coord, std::invocable<logit_t> auto unary_op,
+	//                           bool propagate = true, depth_t depth = 0)
+	// {
+	// 	return updateOccupancyLogit(derived().toCode(coord, depth), unary_op, propagate);
+	// }
 
-	Node updateOccupancyLogit(Point coord, std::invocable<Index, logit_t> auto binary_op,
-	                          bool propagate = true, depth_t depth = 0)
-	{
-		return updateOccupancyLogit(derived().toCode(coord, depth), binary_op, propagate);
-	}
+	// Node updateOccupancyLogit(Point coord, std::invocable<Index, logit_t> auto binary_op,
+	//                           bool propagate = true, depth_t depth = 0)
+	// {
+	// 	return updateOccupancyLogit(derived().toCode(coord, depth), binary_op, propagate);
+	// }
 
 	Node updateOccupancyLogit(coord_t x, coord_t y, coord_t z, int change,
 	                          bool propagate = true, depth_t depth = 0)
@@ -548,19 +548,19 @@ class OccupancyMap
 		return updateOccupancyLogit(derived().toCode(x, y, z, depth), change, propagate);
 	}
 
-	Node updateOccupancyLogit(coord_t x, coord_t y, coord_t z,
-	                          std::invocable<logit_t> auto unary_op, bool propagate = true,
-	                          depth_t depth = 0)
-	{
-		return updateOccupancyLogit(derived().toCode(x, y, z, depth), unary_op, propagate);
-	}
+	// Node updateOccupancyLogit(coord_t x, coord_t y, coord_t z,
+	//                           std::invocable<logit_t> auto unary_op, bool propagate = true,
+	//                           depth_t depth = 0)
+	// {
+	// 	return updateOccupancyLogit(derived().toCode(x, y, z, depth), unary_op, propagate);
+	// }
 
-	Node updateOccupancyLogit(coord_t x, coord_t y, coord_t z,
-	                          std::invocable<Index, logit_t> auto binary_op,
-	                          bool propagate = true, depth_t depth = 0)
-	{
-		return updateOccupancyLogit(derived().toCode(x, y, z, depth), binary_op, propagate);
-	}
+	// Node updateOccupancyLogit(coord_t x, coord_t y, coord_t z,
+	//                           std::invocable<Index, logit_t> auto binary_op,
+	//                           bool propagate = true, depth_t depth = 0)
+	// {
+	// 	return updateOccupancyLogit(derived().toCode(x, y, z, depth), binary_op, propagate);
+	// }
 
 	//
 	// Update occupancy
@@ -571,196 +571,196 @@ class OccupancyMap
 		updateOccupancyLogit(node, toOccupancyLogit(change));
 	}
 
-	void updateOccupancy(Index node, std::invocable<occupancy_t> auto unary_op)
-	{
-		derived().apply(
-		    node,
-		    [this, unary_op](Index node) {
-			    logit_[node.pos][node.offset] = toOccupancyLogit(
-			        unary_op(toOccupancyProbability(logit_[node.pos][node.offset])));
+	// void updateOccupancy(Index node, std::invocable<occupancy_t> auto unary_op)
+	// {
+	// 	derived().apply(
+	// 	    node,
+	// 	    [this, unary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = toOccupancyLogit(
+	// 		        unary_op(toOccupancyProbability(logit_[node.pos][node.offset])));
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, unary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] =
-				        toOccupancyLogit(unary_op(toOccupancyProbability(logit_[pos][i])));
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, unary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] =
+	// 			        toOccupancyLogit(unary_op(toOccupancyProbability(logit_[pos][i])));
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    });
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    });
+	// }
 
-	void updateOccupancy(Index node, std::invocable<Index, occupancy_t> auto binary_op)
-	{
-		derived().apply(
-		    node,
-		    [this, binary_op](Index node) {
-			    logit_[node.pos][node.offset] = toOccupancyLogit(
-			        binary_op(node, toOccupancyProbability(logit_[node.pos][node.offset])));
+	// void updateOccupancy(Index node, std::invocable<Index, occupancy_t> auto binary_op)
+	// {
+	// 	derived().apply(
+	// 	    node,
+	// 	    [this, binary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = toOccupancyLogit(
+	// 		        binary_op(node, toOccupancyProbability(logit_[node.pos][node.offset])));
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, binary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = toOccupancyLogit(
-				        binary_op(Index(pos, i), toOccupancyProbability(logit_[pos][i])));
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, binary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = toOccupancyLogit(
+	// 			        binary_op(Index(pos, i), toOccupancyProbability(logit_[pos][i])));
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    });
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    });
+	// }
 
 	Node updateOccupancy(Node node, occupancy_t change, bool propagate = true)
 	{
 		return updateOccupancyLogit(node, toOccupancyLogit(change), propagate);
 	}
 
-	Node updateOccupancy(Node node, std::invocable<occupancy_t> auto unary_op,
-	                     bool propagate = true)
-	{
-		return derived().apply(
-		    node,
-		    [this, unary_op](Index node) {
-			    logit_[node.pos][node.offset] = toOccupancyLogit(
-			        unary_op(toOccupancyProbability(logit_[node.pos][node.offset])));
+	// Node updateOccupancy(Node node, std::invocable<occupancy_t> auto unary_op,
+	//                      bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    node,
+	// 	    [this, unary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = toOccupancyLogit(
+	// 		        unary_op(toOccupancyProbability(logit_[node.pos][node.offset])));
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, unary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] =
-				        toOccupancyLogit(unary_op(toOccupancyProbability(logit_[pos][i])));
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, unary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] =
+	// 			        toOccupancyLogit(unary_op(toOccupancyProbability(logit_[pos][i])));
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
-	Node updateOccupancy(Node node, std::invocable<Index, occupancy_t> auto binary_op,
-	                     bool propagate = true)
-	{
-		return derived().apply(
-		    node,
-		    [this, binary_op](Index node) {
-			    logit_[node.pos][node.offset] = toOccupancyLogit(
-			        binary_op(node, toOccupancyProbability(logit_[node.pos][node.offset])));
+	// Node updateOccupancy(Node node, std::invocable<Index, occupancy_t> auto binary_op,
+	//                      bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    node,
+	// 	    [this, binary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = toOccupancyLogit(
+	// 		        binary_op(node, toOccupancyProbability(logit_[node.pos][node.offset])));
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, binary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = toOccupancyLogit(
-				        binary_op(Index(pos, i), toOccupancyProbability(logit_[pos][i])));
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, binary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = toOccupancyLogit(
+	// 			        binary_op(Index(pos, i), toOccupancyProbability(logit_[pos][i])));
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
 	Node updateOccupancy(Code code, occupancy_t change, bool propagate = true)
 	{
 		return updateOccupancyLogit(code, toOccupancyLogit(change), propagate);
 	}
 
-	Node updateOccupancy(Code code, std::invocable<occupancy_t> auto unary_op,
-	                     bool propagate = true)
-	{
-		return derived().apply(
-		    code,
-		    [this, unary_op](Index node) {
-			    logit_[node.pos][node.offset] = toOccupancyLogit(
-			        unary_op(toOccupancyProbability(logit_[node.pos][node.offset])));
+	// Node updateOccupancy(Code code, std::invocable<occupancy_t> auto unary_op,
+	//                      bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    code,
+	// 	    [this, unary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = toOccupancyLogit(
+	// 		        unary_op(toOccupancyProbability(logit_[node.pos][node.offset])));
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, unary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] =
-				        toOccupancyLogit(unary_op(toOccupancyProbability(logit_[pos][i])));
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, unary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] =
+	// 			        toOccupancyLogit(unary_op(toOccupancyProbability(logit_[pos][i])));
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
-	Node updateOccupancy(Code code, std::invocable<Index, occupancy_t> auto binary_op,
-	                     bool propagate = true)
-	{
-		return derived().apply(
-		    code,
-		    [this, binary_op](Index node) {
-			    logit_[node.pos][node.offset] = toOccupancyLogit(
-			        binary_op(node, toOccupancyProbability(logit_[node.pos][node.offset])));
+	// Node updateOccupancy(Code code, std::invocable<Index, occupancy_t> auto binary_op,
+	//                      bool propagate = true)
+	// {
+	// 	return derived().apply(
+	// 	    code,
+	// 	    [this, binary_op](Index node) {
+	// 		    logit_[node.pos][node.offset] = toOccupancyLogit(
+	// 		        binary_op(node, toOccupancyProbability(logit_[node.pos][node.offset])));
 
-			    contains_unknown_[node.pos][node.offset] =
-			        isUnknown(logit_[node.pos][node.offset]);
-			    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
-			    contains_occupied_[node.pos][node.offset] =
-			        isOccupied(logit_[node.pos][node.offset]);
-		    },
-		    [this, binary_op](pos_t pos) {
-			    for (offset_t i{}; N != i; ++i) {
-				    logit_[pos][i] = toOccupancyLogit(
-				        binary_op(Index(pos, i), toOccupancyProbability(logit_[pos][i])));
+	// 		    contains_unknown_[node.pos][node.offset] =
+	// 		        isUnknown(logit_[node.pos][node.offset]);
+	// 		    contains_free_[node.pos][node.offset] = isFree(logit_[node.pos][node.offset]);
+	// 		    contains_occupied_[node.pos][node.offset] =
+	// 		        isOccupied(logit_[node.pos][node.offset]);
+	// 	    },
+	// 	    [this, binary_op](pos_t pos) {
+	// 		    for (offset_t i{}; N != i; ++i) {
+	// 			    logit_[pos][i] = toOccupancyLogit(
+	// 			        binary_op(Index(pos, i), toOccupancyProbability(logit_[pos][i])));
 
-				    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
-				    contains_free_[pos][i]     = isFree(logit_[pos][i]);
-				    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
-			    }
-		    },
-		    propagate);
-	}
+	// 			    contains_unknown_[pos][i]  = isUnknown(logit_[pos][i]);
+	// 			    contains_free_[pos][i]     = isFree(logit_[pos][i]);
+	// 			    contains_occupied_[pos][i] = isOccupied(logit_[pos][i]);
+	// 		    }
+	// 	    },
+	// 	    propagate);
+	// }
 
 	Node updateOccupancy(Key key, occupancy_t change, bool propagate = true)
 	{
 		return updateOccupancy(derived().toCode(key), change, propagate);
 	}
 
-	Node updateOccupancy(Key key, std::invocable<occupancy_t> auto unary_op,
-	                     bool propagate = true)
-	{
-		return updateOccupancy(derived().toCode(key), unary_op, propagate);
-	}
+	// Node updateOccupancy(Key key, std::invocable<occupancy_t> auto unary_op,
+	//                      bool propagate = true)
+	// {
+	// 	return updateOccupancy(derived().toCode(key), unary_op, propagate);
+	// }
 
-	Node updateOccupancy(Key key, std::invocable<Index, occupancy_t> auto binary_op,
-	                     bool propagate = true)
-	{
-		return updateOccupancy(derived().toCode(key), binary_op, propagate);
-	}
+	// Node updateOccupancy(Key key, std::invocable<Index, occupancy_t> auto binary_op,
+	//                      bool propagate = true)
+	// {
+	// 	return updateOccupancy(derived().toCode(key), binary_op, propagate);
+	// }
 
 	Node updateOccupancy(Point coord, occupancy_t change, bool propagate = true,
 	                     depth_t depth = 0)
@@ -768,17 +768,17 @@ class OccupancyMap
 		return updateOccupancy(derived().toCode(coord, depth), change, propagate);
 	}
 
-	Node updateOccupancy(Point coord, std::invocable<occupancy_t> auto unary_op,
-	                     bool propagate = true, depth_t depth = 0)
-	{
-		return updateOccupancy(derived().toCode(coord, depth), unary_op, propagate);
-	}
+	// Node updateOccupancy(Point coord, std::invocable<occupancy_t> auto unary_op,
+	//                      bool propagate = true, depth_t depth = 0)
+	// {
+	// 	return updateOccupancy(derived().toCode(coord, depth), unary_op, propagate);
+	// }
 
-	Node updateOccupancy(Point coord, std::invocable<Index, occupancy_t> auto binary_op,
-	                     bool propagate = true, depth_t depth = 0)
-	{
-		return updateOccupancy(derived().toCode(coord, depth), binary_op, propagate);
-	}
+	// Node updateOccupancy(Point coord, std::invocable<Index, occupancy_t> auto binary_op,
+	//                      bool propagate = true, depth_t depth = 0)
+	// {
+	// 	return updateOccupancy(derived().toCode(coord, depth), binary_op, propagate);
+	// }
 
 	Node updateOccupancy(coord_t x, coord_t y, coord_t z, occupancy_t change,
 	                     bool propagate = true, depth_t depth = 0)
@@ -786,19 +786,19 @@ class OccupancyMap
 		return updateOccupancy(derived().toCode(x, y, z, depth), change, propagate);
 	}
 
-	Node updateOccupancy(coord_t x, coord_t y, coord_t z,
-	                     std::invocable<occupancy_t> auto unary_op, bool propagate = true,
-	                     depth_t depth = 0)
-	{
-		return updateOccupancy(derived().toCode(x, y, z, depth), unary_op, propagate);
-	}
+	// Node updateOccupancy(coord_t x, coord_t y, coord_t z,
+	//                      std::invocable<occupancy_t> auto unary_op, bool propagate = true,
+	//                      depth_t depth = 0)
+	// {
+	// 	return updateOccupancy(derived().toCode(x, y, z, depth), unary_op, propagate);
+	// }
 
-	Node updateOccupancy(coord_t x, coord_t y, coord_t z,
-	                     std::invocable<Index, occupancy_t> auto binary_op,
-	                     bool propagate = true, depth_t depth = 0)
-	{
-		return updateOccupancy(derived().toCode(x, y, z, depth), binary_op, propagate);
-	}
+	// Node updateOccupancy(coord_t x, coord_t y, coord_t z,
+	//                      std::invocable<Index, occupancy_t> auto binary_op,
+	//                      bool propagate = true, depth_t depth = 0)
+	// {
+	// 	return updateOccupancy(derived().toCode(x, y, z, depth), binary_op, propagate);
+	// }
 
 	//
 	// Get occupancy state
@@ -1084,14 +1084,24 @@ class OccupancyMap
 	// Sensor model
 	//
 
-	[[nodiscard]] constexpr occupancy_t occupancyClampingThres() const noexcept
+	[[nodiscard]] constexpr occupancy_t occupancyMinClampingThres() const noexcept
 	{
-		return probability(occupancyClampingThresLogit());
+		return probability(occupancyMinClampingThresLogit());
 	}
 
-	[[nodiscard]] constexpr double occupancyClampingThresLogit() const noexcept
+	[[nodiscard]] constexpr occupancy_t occupancyMaxClampingThres() const noexcept
 	{
-		return clamping_thres_logit_;
+		return probability(occupancyMaxClampingThresLogit());
+	}
+
+	[[nodiscard]] constexpr logit_t occupancyMinClampingThresLogit() const noexcept
+	{
+		return min_clamping_thres_logit_;
+	}
+
+	[[nodiscard]] constexpr logit_t occupancyMaxClampingThresLogit() const noexcept
+	{
+		return max_clamping_thres_logit_;
 	}
 
 	[[nodiscard]] constexpr occupancy_t occupiedThres() const noexcept
@@ -1121,7 +1131,7 @@ class OccupancyMap
 	[[nodiscard]] constexpr logit_t toOccupancyLogit(occupancy_t probability) const
 	{
 		return logit<logit_t>(static_cast<double>(probability),
-		                      -occupancyClampingThresLogit(), occupancyClampingThresLogit());
+		                      occupancyMinClampingThresLogit(), occupancyMaxClampingThresLogit());
 	}
 
 	template <class logit_t>
@@ -1130,8 +1140,8 @@ class OccupancyMap
 		if constexpr (std::is_floating_point_v<logit_t>) {
 			return probability(logit);
 		} else {
-			return probability(logit, -occupancyClampingThresLogit(),
-			                   occupancyClampingThresLogit());
+			return probability(logit, occupancyMinClampingThresLogit(),
+			                   occupancyMaxClampingThresLogit());
 		}
 	}
 
@@ -1142,8 +1152,8 @@ class OccupancyMap
 			return logit(probability);
 		} else {
 			return logitChangeValue<logit_t>(static_cast<double>(probability),
-			                                 -occupancyClampingThresLogit(),
-			                                 occupancyClampingThresLogit());
+			                                 occupancyMinClampingThresLogit(),
+			                                 occupancyMaxClampingThresLogit());
 		}
 	}
 
@@ -1178,9 +1188,10 @@ class OccupancyMap
 		}
 	}
 
-	void setOccupancyClampingThres(occupancy_t probability)
+	void setOccupancyClampingThres(occupancy_t min_probability, occupancy_t max_probability)
 	{
-		clamping_thres_logit_ = logit(probability);
+		min_clamping_thres_logit_ = logit(min_probability);
+		max_clamping_thres_logit_ = logit(max_probability);
 	}
 
 	//
@@ -1238,7 +1249,8 @@ class OccupancyMap
 	    , contains_unknown_(other.contains_unknown_)
 	    , contains_free_(other.contains_free_)
 	    , contains_occupied_(other.contains_occupied_)
-	    , clamping_thres_logit_(other.clamping_thres_logit_)
+	    , min_clamping_thres_logit_(other.min_clamping_thres_logit_)
+		, max_clamping_thres_logit_(other.max_clamping_thres_logit_)	
 	    , occupied_thres_logit_(other.occupied_thres_logit_)
 	    , free_thres_logit_(other.free_thres_logit_)
 	    , prop_criteria_(other.prop_criteria_)
@@ -1251,7 +1263,8 @@ class OccupancyMap
 	    , contains_unknown_(std::move(other.contains_unknown_))
 	    , contains_free_(std::move(other.contains_free_))
 	    , contains_occupied_(std::move(other.contains_occupied_))
-	    , clamping_thres_logit_(std::move(other.clamping_thres_logit_))
+	    , min_clamping_thres_logit_(std::move(other.min_clamping_thres_logit_))
+	    , max_clamping_thres_logit_(std::move(other.max_clamping_thres_logit_))
 	    , occupied_thres_logit_(std::move(other.occupied_thres_logit_))
 	    , free_thres_logit_(std::move(other.free_thres_logit_))
 	    , prop_criteria_(std::move(other.prop_criteria_))
@@ -1279,7 +1292,8 @@ class OccupancyMap
 		contains_unknown_     = rhs.contains_unknown_;
 		contains_free_        = rhs.contains_free_;
 		contains_occupied_    = rhs.contains_occupied_;
-		clamping_thres_logit_ = rhs.clamping_thres_logit_;
+		min_clamping_thres_logit_ = rhs.min_clamping_thres_logit_;
+		max_clamping_thres_logit_ = rhs.max_clamping_thres_logit_;
 		occupied_thres_logit_ = rhs.occupied_thres_logit_;
 		free_thres_logit_     = rhs.free_thres_logit_;
 		prop_criteria_        = rhs.prop_criteria_;
@@ -1293,7 +1307,8 @@ class OccupancyMap
 		contains_unknown_     = std::move(rhs.contains_unknown_);
 		contains_free_        = std::move(rhs.contains_free_);
 		contains_occupied_    = std::move(rhs.contains_occupied_);
-		clamping_thres_logit_ = std::move(rhs.clamping_thres_logit_);
+		min_clamping_thres_logit_ = std::move(rhs.min_clamping_thres_logit_);
+		max_clamping_thres_logit_ = std::move(rhs.max_clamping_thres_logit_);
 		occupied_thres_logit_ = std::move(rhs.occupied_thres_logit_);
 		free_thres_logit_     = std::move(rhs.free_thres_logit_);
 		prop_criteria_        = std::move(rhs.prop_criteria_);
@@ -1310,7 +1325,8 @@ class OccupancyMap
 		std::swap(contains_unknown_, other.contains_unknown_);
 		std::swap(contains_free_, other.contains_free_);
 		std::swap(contains_occupied_, other.contains_occupied_);
-		std::swap(clamping_thres_logit_, other.clamping_thres_logit_);
+		std::swap(min_clamping_thres_logit_, other.min_clamping_thres_logit_);
+		std::swap(max_clamping_thres_logit_, other.max_clamping_thres_logit_);
 		std::swap(occupied_thres_logit_, other.occupied_thres_logit_);
 		std::swap(free_thres_logit_, other.free_thres_logit_);
 		std::swap(prop_criteria_, other.prop_criteria_);
@@ -1428,20 +1444,21 @@ class OccupancyMap
 	{
 		switch (occupancyPropagationCriteria()) {
 			case PropagationCriteria::MIN:
-				logit_[node.pos][node.offset] = std::ranges::min(logit_[children]);
+				logit_[node.pos][node.offset] = *std::min_element(logit_[children].begin(), logit_[children].end());
 				break;
 			case PropagationCriteria::MAX:
-				logit_[node.pos][node.offset] = std::ranges::max(logit_[children]);
+				logit_[node.pos][node.offset] = *std::max_element(logit_[children].begin(), logit_[children].end());
 				break;
 			case PropagationCriteria::MEAN:
-				logit_[node.pos][node.offset] = mean(children);
+				logit_[node.pos][node.offset] = mean(children);  // Assuming your `mean()` is C++17-compatible
 				break;
 			case PropagationCriteria::FIRST:
 				logit_[node.pos][node.offset] = logit_[children].front();
 				break;
-			case PropagationCriteria::NONE: break;
+			case PropagationCriteria::NONE:
+				break;
 		}
-
+	
 		contains_unknown_[node.pos][node.offset]  = contains_unknown_[children].any();
 		contains_free_[node.pos][node.offset]     = contains_free_[children].any();
 		contains_occupied_[node.pos][node.offset] = contains_occupied_[children].any();
@@ -1533,33 +1550,34 @@ class OccupancyMap
 
 	[[nodiscard]] static constexpr MapType mapType() noexcept { return MapType::OCCUPANCY; }
 
-	constexpr std::size_t serializedSize(std::ranges::input_range auto r) const
+	template <typename Range>
+	constexpr std::size_t serializedSize(const Range& r) const
 	{
-		return std::ranges::size(r) * memoryNodeBlock();
+		return std::distance(std::begin(r), std::end(r)) * memoryNodeBlock();
 	}
 
-	void readNodes(ReadBuffer& in, std::ranges::input_range auto r)
-	{
-		for (auto const [pos, offsets] : r) {
-			if (offsets.all()) {
-				in.read(logit_[pos].data(), memoryNodeBlock());
-			} else {
-				DataBlock<logit_t, N> logit;
-				in.read(logit.data(), memoryNodeBlock());
-				for (offset_t i{}; N != i; ++i) {
-					logit_[pos][i] = offsets[i] ? logit[i] : logit_[pos][i];
-				}
-			}
-		}
-	}
+	// void readNodes(ReadBuffer& in, std::ranges::input_range auto r)
+	// {
+	// 	for (auto const [pos, offsets] : r) {
+	// 		if (offsets.all()) {
+	// 			in.read(logit_[pos].data(), memoryNodeBlock());
+	// 		} else {
+	// 			DataBlock<logit_t, N> logit;
+	// 			in.read(logit.data(), memoryNodeBlock());
+	// 			for (offset_t i{}; N != i; ++i) {
+	// 				logit_[pos][i] = offsets[i] ? logit[i] : logit_[pos][i];
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-	void writeNodes(WriteBuffer& out, std::ranges::input_range auto r) const
-	{
-		out.reserve(out.size() + serializedSize(r));
-		for (auto pos : r) {
-			out.write(logit_[pos].data(), memoryNodeBlock());
-		}
-	}
+	// void writeNodes(WriteBuffer& out, std::ranges::input_range auto r) const
+	// {
+	// 	out.reserve(out.size() + serializedSize(r));
+	// 	for (auto pos : r) {
+	// 		out.write(logit_[pos].data(), memoryNodeBlock());
+	// 	}
+	// }
 
  protected:
 	Container<DataBlock<logit_t, 8>> logit_;
@@ -1567,7 +1585,8 @@ class OccupancyMap
 	Container<BitSet<8>>             contains_free_;
 	Container<BitSet<8>>             contains_occupied_;
 
-	double clamping_thres_logit_ = logit(0.971);
+	logit_t min_clamping_thres_logit_ = logit(0.1192);
+	logit_t max_clamping_thres_logit_ = logit(0.971);
 
 	logit_t occupied_thres_logit_ = toOccupancyLogit(0.5);  // Threshold for occupied
 	logit_t free_thres_logit_     = toOccupancyLogit(0.5);  // Threshold for free
@@ -1585,8 +1604,12 @@ class OccupancyMap
 // Concepts
 //
 
+// template <class Map>
+// concept IsOccupancyMap = IsMapType<Map, MapType::OCCUPANCY>;
+
 template <class Map>
-concept IsOccupancyMap = IsMapType<Map, MapType::OCCUPANCY>;
+constexpr bool IsOccupancyMap = IsMapType<Map, MapType::OCCUPANCY>;
+
 }  // namespace ufo
 
 #endif  // UFO_MAP_OCCUPANCY_MAP_HPP

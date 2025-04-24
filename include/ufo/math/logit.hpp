@@ -45,7 +45,7 @@
 // STL
 #include <algorithm>
 #include <cmath>
-#include <concepts>
+//  #include <concepts>
 #include <cstdint>
 
 namespace ufo
@@ -54,24 +54,48 @@ namespace ufo
 // Floating point
 //
 
+// template <typename F>
+//   requires std::floating_point<F>
+// [[nodiscard]] constexpr F logit(F probability) noexcept
+// {
+// 	return std::log(probability / (F(1) - probability));
+// }
+
+// template <typename F>
+//   requires std::floating_point<F>
+// [[nodiscard]] constexpr F logit(F probability, F min_logit, F max_logit) noexcept
+// {
+// 	return std::clamp(logit(probability), min_logit, max_logit);
+// }
+
+// template <typename F>
+//   requires std::floating_point<F>
+// [[nodiscard]] constexpr F probability(F logit) noexcept
+// {
+// 	return F(1) / (F(1) + std::exp(-logit));
+// }
+
+// logit function
 template <typename F>
-  requires std::floating_point<F>
 [[nodiscard]] constexpr F logit(F probability) noexcept
 {
+	static_assert(std::is_floating_point<F>::value, "F must be a floating-point type");
 	return std::log(probability / (F(1) - probability));
 }
 
+// clamped logit
 template <typename F>
-  requires std::floating_point<F>
 [[nodiscard]] constexpr F logit(F probability, F min_logit, F max_logit) noexcept
 {
+	static_assert(std::is_floating_point<F>::value, "F must be a floating-point type");
 	return std::clamp(logit(probability), min_logit, max_logit);
 }
 
+// sigmoid (inverse logit)
 template <typename F>
-  requires std::floating_point<F>
 [[nodiscard]] constexpr F probability(F logit) noexcept
 {
+	static_assert(std::is_floating_point<F>::value, "F must be a floating-point type");
 	return F(1) / (F(1) + std::exp(-logit));
 }
 
@@ -79,16 +103,22 @@ template <typename F>
 // Signed
 //
 
-template <typename S, typename F>
-  requires std::signed_integral<S> && std::floating_point<F>
+// template <typename S, typename F>
+//   requires std::signed_integral<S> && std::floating_point<F>
+template <typename S, typename F,
+          typename std::enable_if_t<
+              std::is_signed<S>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr F convertLogit(S logit, F min_logit, F max_logit) noexcept
 {
 	// TODO: Implement
 	return ((logit * (max_logit - min_logit)) / std::numeric_limits<S>::max()) + min_logit;
 }
 
-template <typename S, typename F>
-  requires std::signed_integral<S> && std::floating_point<F>
+// template <typename S, typename F>
+//   requires std::signed_integral<S> && std::floating_point<F>
+template <typename S, typename F,
+          typename std::enable_if_t<
+              std::is_signed<S>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr S convertLogit(F logit, F min_logit, F max_logit) noexcept
 {
 	// TODO: Implement
@@ -96,16 +126,22 @@ template <typename S, typename F>
 	                    (max_logit - min_logit));
 }
 
-template <typename S, typename F>
-  requires std::signed_integral<S> && std::floating_point<F>
+// template <typename S, typename F>
+//   requires std::signed_integral<S> && std::floating_point<F>
+template <typename S, typename F,
+          typename std::enable_if_t<
+              std::is_signed<S>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr S logit(F probability, F min_logit, F max_logit) noexcept
 {
 	// TODO: Implement
 	return convertLogit<S>(logit(probability, min_logit, max_logit), min_logit, max_logit);
 }
 
-template <typename S, typename F>
-  requires std::signed_integral<S> && std::floating_point<F>
+// template <typename S, typename F>
+//   requires std::signed_integral<S> && std::floating_point<F>
+template <typename S, typename F,
+          typename std::enable_if_t<
+              std::is_signed<S>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr F probability(S logit, F min_logit, F max_logit) noexcept
 {
 	// TODO: Implement
@@ -113,29 +149,28 @@ template <typename S, typename F>
 }
 
 // Call to get uint prob_hit / prob_miss
-template <typename S, typename F>
-  requires std::signed_integral<S> && std::floating_point<F>
+// template <typename S, typename F>
+//   requires std::signed_integral<S> && std::floating_point<F>
+template <typename S, typename F,
+          typename std::enable_if_t<
+              std::is_signed<S>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr S logitChangeValue(F probability, F min_logit,
                                            F max_logit) noexcept
 {
-	// TODO: Implement
 	return F(0.5) > probability ? logit<S>(F(0.5), min_logit, max_logit) -
 	                                  logit<S>(probability, min_logit, max_logit)
 	                            : logit<S>(probability, min_logit, max_logit) -
 	                                  logit<S>(F(0.5), min_logit, max_logit);
 }
 
-template <typename S>
-  requires std::signed_integral<S>
+template <typename S, typename std::enable_if_t<std::is_signed<S>::value, int> = 0>
 [[nodiscard]] constexpr S increaseLogit(S cur, S inc) noexcept
 {
-	// TODO: Implement
 	return std::numeric_limits<S>::max() - cur > inc ? cur + inc
 	                                                 : std::numeric_limits<S>::max();
 }
 
-template <typename S>
-  requires std::signed_integral<S>
+template <typename S, typename std::enable_if_t<std::is_signed<S>::value, int> = 0>
 [[nodiscard]] constexpr S decreaseLogit(S cur, S dec) noexcept
 {
 	// TODO: Implement
@@ -146,39 +181,44 @@ template <typename S>
 // Unsigned
 //
 
-template <typename U, typename F>
-  requires std::unsigned_integral<U> && std::floating_point<F>
+template <typename U, typename F,
+          typename std::enable_if_t<
+              std::is_unsigned<U>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr F convertLogit(U logit, F min_logit, F max_logit) noexcept
 {
 	return ((logit * (max_logit - min_logit)) / std::numeric_limits<U>::max()) + min_logit;
 }
 
-template <typename U, typename F>
-  requires std::unsigned_integral<U> && std::floating_point<F>
+template <typename U, typename F,
+          typename std::enable_if_t<
+              std::is_unsigned<U>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr U convertLogit(F logit, F min_logit, F max_logit) noexcept
 {
 	return std::llround((logit - min_logit) * std::numeric_limits<U>::max() /
 	                    (max_logit - min_logit));
 }
 
-template <typename U, typename F>
-  requires std::unsigned_integral<U> && std::floating_point<F>
+template <typename U, typename F,
+          typename std::enable_if_t<
+              std::is_unsigned<U>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr std::enable_if_t<std::is_unsigned_v<U>, U> logit(
     F probability, F min_logit, F max_logit) noexcept
 {
 	return convertLogit<U>(logit(probability, min_logit, max_logit), min_logit, max_logit);
 }
 
-template <typename U, typename F>
-  requires std::unsigned_integral<U> && std::floating_point<F>
+template <typename U, typename F,
+          typename std::enable_if_t<
+              std::is_unsigned<U>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr F probability(U logit, F min_logit, F max_logit) noexcept
 {
 	return probability(convertLogit(logit, min_logit, max_logit));
 }
 
 // Call to get uint prob_hit / prob_miss
-template <typename U, typename F>
-  requires std::unsigned_integral<U> && std::floating_point<F>
+template <typename U, typename F,
+          typename std::enable_if_t<
+              std::is_unsigned<U>::value && std::is_floating_point<F>::value, int> = 0>
 [[nodiscard]] constexpr U logitChangeValue(F probability, F min_logit,
                                            F max_logit) noexcept
 {
@@ -188,20 +228,19 @@ template <typename U, typename F>
 	                                  logit<U>(F(0.5), min_logit, max_logit);
 }
 
-template <typename U>
-  requires std::unsigned_integral<U>
+template <typename U, typename std::enable_if_t<std::is_unsigned<U>::value, int> = 0>
 [[nodiscard]] constexpr U increaseLogit(U cur, U inc) noexcept
 {
 	return std::numeric_limits<U>::max() - cur > inc ? cur + inc
 	                                                 : std::numeric_limits<U>::max();
 }
 
-template <typename U>
-  requires std::unsigned_integral<U>
+template <typename U, typename std::enable_if_t<std::is_unsigned<U>::value, int> = 0>
 [[nodiscard]] constexpr U decreaseLogit(U cur, U dec) noexcept
 {
 	return cur - std::min(cur, dec);
 }
+
 }  // namespace ufo
 
 #endif  // UFO_MATH_EXTRA_HPP

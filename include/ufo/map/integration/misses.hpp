@@ -104,7 +104,7 @@ Misses getMisses(CodeUnorderedMap<Grid> const& free_grids,
 
 #pragma omp for schedule(static)
 			for (auto const code : codes) {
-				auto thread_id = omp_get_thread_num();
+				// auto thread_id = omp_get_thread_num();
 
 				auto        it       = hit_grids.find(code);
 				Grid const& hit_grid = std::cend(hit_grids) != it ? it->second : empty_grid;
@@ -112,7 +112,8 @@ Misses getMisses(CodeUnorderedMap<Grid> const& free_grids,
 				Grid const& free_grid = free_grids.find(code)->second;
 
 				auto hg_it = std::cbegin(hit_grid);
-				for (code_t i = code.code(); auto const m : free_grid) {
+				code_t i = code.code();
+				for (auto const m : free_grid) {
 					if (0 == m) {
 						i += inc;
 						++hg_it;

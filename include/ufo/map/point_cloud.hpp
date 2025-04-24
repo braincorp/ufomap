@@ -46,18 +46,18 @@
 #include <cstring>
 #include <initializer_list>
 #include <numeric>
-#include <ufo/map/color/color.hpp>
-#include <ufo/map/intensity/intensity_map.hpp>
+// #include <ufo/map/color/color.hpp>
+// #include <ufo/map/intensity/intensity_map.hpp>
 #include <ufo/map/point.hpp>
 #include <ufo/map/types.hpp>
 #include <ufo/math/pose6.hpp>
 
 // LZF
-#include <liblzf/lzf.h>
+// #include <liblzf/lzf.h>
 
 // STL
 #include <algorithm>
-#include <concepts>
+// #include <concepts>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -116,18 +116,96 @@ void applyTransform(PointCloud& cloud, Pose6<T> const& transform)
 template <class PointCloud>
 void removeNaN(PointCloud& cloud)
 {
-	std::erase_if(cloud, [](auto const& point) {
-		return std::isnan(point.x) || std::isnan(point.y) || std::isnan(point.z);
-	});
+    // Remove points where x, y, or z are NaN
+    auto it = std::remove_if(cloud.begin(), cloud.end(), [](auto const& point) {
+        return std::isnan(point.x) || std::isnan(point.y) || std::isnan(point.z);
+    });
+    
+    // Erase the "removed" elements by resizing the container
+    cloud.erase(it, cloud.end());
 }
 
 template <class PointCloud>
 void filterDistance(PointCloud& cloud, Point origin, float max_distance)
 {
-	float sqrt_dist = max_distance * max_distance;
-	std::erase_if(cloud, [origin, sqrt_dist](auto const& point) {
-		return origin.squaredDistance(point) > sqrt_dist;
-	});
+    float sqrt_dist = max_distance * max_distance;
+
+    // Use std::remove_if to reorder the container
+    auto it = std::remove_if(cloud.begin(), cloud.end(), [origin, sqrt_dist](auto const& point) {
+        return origin.squaredDistance(point) > sqrt_dist;
+    });
+
+    // Erase the "removed" elements
+    cloud.erase(it, cloud.end());
+}
+
+std::pair<Point, bool> clipAlongRay(const Point& origin, const Point& target, const float z_min, const float z_max) {
+    // Ensure origin z is between min and max height
+	if (origin.z < z_min || origin.z > z_max) {
+		std::cout << "origin.z " << origin.z << " z_min " << z_min << " z_max " << z_max << std::endl;
+		throw std::runtime_error("Origin z coordinate is outside the specified range.");
+	}
+
+	if (z_min < target.z && target.z < z_max) {
+		return {target, false};
+	}
+
+    Point direction;
+    direction.x = target.x - origin.x;
+    direction.y = target.y - origin.y;
+    direction.z = target.z - origin.z;
+
+    // If ray is parallel or has zero length, return the origin
+    const float length = std::sqrt(direction.x * direction.x +
+                             direction.y * direction.y +
+                             direction.z * direction.z);
+    if (length == 0.0) {
+		std::cout << "ggggggggggggggggggggggggggsfdgsdfg " << std::endl;
+		return {origin, false};
+	}
+
+    // Normalize direction
+    direction.x /= length;
+    direction.y /= length;
+    direction.z /= length;
+
+	// Clamp projected length to z_min and z_max
+	float clipped_length = length;
+	if (target.z <= z_min) {
+		clipped_length = (z_min - origin.z) / direction.z;
+	} else if (target.z >= z_max) {
+		clipped_length = (z_max - origin.z) / direction.z;
+	}
+
+	  // Get new clipped point
+    Point clipped;
+    clipped.x = origin.x + clipped_length * direction.x;
+    clipped.y = origin.y + clipped_length * direction.y;
+    clipped.z = origin.z + clipped_length * direction.z;
+
+    return {clipped, true};
+}
+
+
+template <class PointCloud>
+static
+void filterZminMax(const PointCloud& cloud, const Point& origin,
+                   PointCloud& original_cloud, PointCloud& clipped_cloud)
+{
+	// std::cout << "gggggggggggggg origin.z " << origin.z << std::endl;
+	const float z_max = origin.z;
+	const float z_min = 0.5;
+
+	for (const auto& point : cloud) {
+		auto [clipped_point, clipped] = clipAlongRay(origin, point, z_min, z_max);
+
+		if (clipped) {
+			clipped_cloud.emplace_back(clipped_point);
+		} else {
+			original_cloud.emplace_back(clipped_point);
+		}
+		// clipped_cloud.emplace_back(clipped_point);
+	}
 }
 
 template <class PointCloud>
@@ -153,96 +231,96 @@ void readPointCloudXYZ(std::filesystem::path const& file, PointCloud& cloud)
 	}
 }
 
-template <class PointCloud>
-void readPointCloudXYZRGB(std::filesystem::path const& file, PointCloud& cloud)
-{
-	std::ifstream f;
-	f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	f.imbue(std::locale());
-	f.open(file);
+// template <class PointCloud>
+// void readPointCloudXYZRGB(std::filesystem::path const& file, PointCloud& cloud)
+// {
+// 	std::ifstream f;
+// 	f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file);
 
-	cloud.clear();
+// 	cloud.clear();
 
-	std::string line;
-	while (std::getline(f, line)) {
-		float x, y, z, r, g, b;
+// 	std::string line;
+// 	while (std::getline(f, line)) {
+// 		float x, y, z, r, g, b;
 
-		std::istringstream iss(line);
-		if (!(iss >> x >> y >> z >> r >> g >> b)) {
-			// TODO: Error
-		}
+// 		std::istringstream iss(line);
+// 		if (!(iss >> x >> y >> z >> r >> g >> b)) {
+// 			// TODO: Error
+// 		}
 
-		cloud.emplace_back(x, y, z);
-		if constexpr (IsColor<PointCloud>) {
-			cloud.back().red   = std::numeric_limits<color_t>::max() * r;
-			cloud.back().green = std::numeric_limits<color_t>::max() * g;
-			cloud.back().blue  = std::numeric_limits<color_t>::max() * b;
-		}
-	}
-}
+// 		cloud.emplace_back(x, y, z);
+// 		if constexpr (IsColor<PointCloud>) {
+// 			cloud.back().red   = std::numeric_limits<color_t>::max() * r;
+// 			cloud.back().green = std::numeric_limits<color_t>::max() * g;
+// 			cloud.back().blue  = std::numeric_limits<color_t>::max() * b;
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void readPointCloudXYZI(std::filesystem::path const& file, PointCloud& cloud)
-{
-	std::ifstream f;
-	f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	f.imbue(std::locale());
-	f.open(file);
+// template <class PointCloud>
+// void readPointCloudXYZI(std::filesystem::path const& file, PointCloud& cloud)
+// {
+// 	std::ifstream f;
+// 	f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file);
 
-	cloud.clear();
+// 	cloud.clear();
 
-	std::string line;
-	while (std::getline(f, line)) {
-		float x, y, z, i;
+// 	std::string line;
+// 	while (std::getline(f, line)) {
+// 		float x, y, z, i;
 
-		std::istringstream iss(line);
-		if (!(iss >> x >> y >> z >> i)) {
-			// TODO: Error
-		}
+// 		std::istringstream iss(line);
+// 		if (!(iss >> x >> y >> z >> i)) {
+// 			// TODO: Error
+// 		}
 
-		cloud.emplace_back(x, y, z);
-		if constexpr (IsIntensity<PointCloud>) {
-			cloud.back().intensity = i;
-		}
-	}
-}
+// 		cloud.emplace_back(x, y, z);
+// 		if constexpr (IsIntensity<PointCloud>) {
+// 			cloud.back().intensity = i;
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void readPointCloudXYZIRGB(std::filesystem::path const& file, PointCloud& cloud)
-{
-	std::ifstream f;
-	f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	f.imbue(std::locale());
-	f.open(file);
+// template <class PointCloud>
+// void readPointCloudXYZIRGB(std::filesystem::path const& file, PointCloud& cloud)
+// {
+// 	std::ifstream f;
+// 	f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file);
 
-	cloud.clear();
+// 	cloud.clear();
 
-	std::string line;
-	while (std::getline(f, line)) {
-		float x, y, z, i, r, g, b;
+// 	std::string line;
+// 	while (std::getline(f, line)) {
+// 		float x, y, z, i, r, g, b;
 
-		std::istringstream iss(line);
-		if (!(iss >> x >> y >> z >> i >> r >> g >> b)) {
-			// TODO: Error
-		}
+// 		std::istringstream iss(line);
+// 		if (!(iss >> x >> y >> z >> i >> r >> g >> b)) {
+// 			// TODO: Error
+// 		}
 
-		cloud.emplace_back(x, y, z);
-		if constexpr (IsColor<PointCloud>) {
-			cloud.back().red   = std::numeric_limits<color_t>::max() * r;
-			cloud.back().green = std::numeric_limits<color_t>::max() * g;
-			cloud.back().blue  = std::numeric_limits<color_t>::max() * b;
-		}
-		if constexpr (IsIntensity<PointCloud>) {
-			cloud.back().intensity = i;
-		}
-	}
-}
+// 		cloud.emplace_back(x, y, z);
+// 		if constexpr (IsColor<PointCloud>) {
+// 			cloud.back().red   = std::numeric_limits<color_t>::max() * r;
+// 			cloud.back().green = std::numeric_limits<color_t>::max() * g;
+// 			cloud.back().blue  = std::numeric_limits<color_t>::max() * b;
+// 		}
+// 		if constexpr (IsIntensity<PointCloud>) {
+// 			cloud.back().intensity = i;
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void readPointCloudPLY(std::filesystem::path const& file, PointCloud& cloud)
-{
-	// TODO: Implement
-}
+// template <class PointCloud>
+// void readPointCloudPLY(std::filesystem::path const& file, PointCloud& cloud)
+// {
+// 	// TODO: Implement
+// }
 
 namespace impl
 {
@@ -296,562 +374,563 @@ std::vector<std::string> splitString(std::string const& str, std::string const& 
 	return result;
 }
 
-template <typename T>
-T unpackASCIIPCDElement(std::string const& str, PCDType type, std::size_t size)
-{
-	if constexpr (std::same_as<Color, T>) {
-		if (4 != size) {
-			return Color();
-		}
+// template <typename T>
+// T unpackASCIIPCDElement(std::string const& str, PCDType type, std::size_t size)
+// {
+// 	if constexpr (std::same_as<Color, T>) {
+// 		if (4 != size) {
+// 			return Color();
+// 		}
 
-		std::uint8_t data[3];
-		switch (type) {
-			case PCDType::I: {
-				std::int32_t v = std::stol(str);
-				std::memcpy(data, &v, 3);
-			}
-			case PCDType::U: {
-				std::uint32_t v = std::stoul(str);
-				std::memcpy(data, &v, 3);
-			}
-			case PCDType::F: {
-				float v = std::stof(str);
-				std::memcpy(data, &v, 3);
-			}
-		}
-		return Color(data[2], data[1], data[0]);
-	} else {
-		switch (type) {
-			case PCDType::I: return static_cast<T>(std::stoll(str));
-			case PCDType::U: return static_cast<T>(std::stoull(str));
-			case PCDType::F: return static_cast<T>(std::stod(str));
-		}
-	}
+// 		std::uint8_t data[3];
+// 		switch (type) {
+// 			case PCDType::I: {
+// 				std::int32_t v = std::stol(str);
+// 				std::memcpy(data, &v, 3);
+// 			}
+// 			case PCDType::U: {
+// 				std::uint32_t v = std::stoul(str);
+// 				std::memcpy(data, &v, 3);
+// 			}
+// 			case PCDType::F: {
+// 				float v = std::stof(str);
+// 				std::memcpy(data, &v, 3);
+// 			}
+// 		}
+// 		return Color(data[2], data[1], data[0]);
+// 	} else {
+// 		switch (type) {
+// 			case PCDType::I: return static_cast<T>(std::stoll(str));
+// 			case PCDType::U: return static_cast<T>(std::stoull(str));
+// 			case PCDType::F: return static_cast<T>(std::stod(str));
+// 		}
+// 	}
 
-	return T();
-}
+// 	return T();
+// }
 
-template <typename T>
-T unpackBinaryPCDElement(char const* data, PCDType type, std::size_t size)
-{
-	if constexpr (std::same_as<Color, T>) {
-		if (4 != size) {
-			return Color();
-		}
+// template <typename T>
+// T unpackBinaryPCDElement(char const* data, PCDType type, std::size_t size)
+// {
+// 	if constexpr (std::same_as<Color, T>) {
+// 		if (4 != size) {
+// 			return Color();
+// 		}
 
-		std::uint8_t d[3];
-		std::memcpy(d, data, 3);
-		return Color(data[2], data[1], data[0]);
-	} else {
-		switch (type) {
-			case PCDType::I:
-				switch (size) {
-					case 1: {
-						std::int8_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 2: {
-						std::int16_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 4: {
-						std::int32_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 8: {
-						std::int64_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					default: return T();
-				}
-			case PCDType::U:
-				switch (size) {
-					case 1: {
-						std::uint8_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 2: {
-						std::uint16_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 4: {
-						std::uint32_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 8: {
-						std::uint64_t d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					default: return T();
-				}
-			case PCDType::F:
-				switch (size) {
-					case 4: {
-						float d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					case 8: {
-						double d;
-						std::memcpy(&d, data, sizeof(d));
-						return static_cast<T>(d);
-					}
-					default: return T();
-				}
-		}
-	}
+// 		std::uint8_t d[3];
+// 		std::memcpy(d, data, 3);
+// 		return Color(data[2], data[1], data[0]);
+// 	} else {
+// 		switch (type) {
+// 			case PCDType::I:
+// 				switch (size) {
+// 					case 1: {
+// 						std::int8_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 2: {
+// 						std::int16_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 4: {
+// 						std::int32_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 8: {
+// 						std::int64_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					default: return T();
+// 				}
+// 			case PCDType::U:
+// 				switch (size) {
+// 					case 1: {
+// 						std::uint8_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 2: {
+// 						std::uint16_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 4: {
+// 						std::uint32_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 8: {
+// 						std::uint64_t d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					default: return T();
+// 				}
+// 			case PCDType::F:
+// 				switch (size) {
+// 					case 4: {
+// 						float d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					case 8: {
+// 						double d;
+// 						std::memcpy(&d, data, sizeof(d));
+// 						return static_cast<T>(d);
+// 					}
+// 					default: return T();
+// 				}
+// 		}
+// 	}
 
-	return T();
-}
+// 	return T();
+// }
+
 }  // namespace impl
 
-template <class PointCloud>
-void readPointCloudPCD(std::filesystem::path const& filename, PointCloud& cloud,
-                       Pose6f& viewpoint)
-{
-	std::ifstream file;
-	file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	file.imbue(std::locale());
-	file.open(filename, std::ios_base::in | std::ios_base::binary);
+// template <class PointCloud>
+// void readPointCloudPCD(std::filesystem::path const& filename, PointCloud& cloud,
+//                        Pose6f& viewpoint)
+// {
+// 	std::ifstream file;
+// 	file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+// 	file.imbue(std::locale());
+// 	file.open(filename, std::ios_base::in | std::ios_base::binary);
 
-	impl::PCDHeader header;
+// 	impl::PCDHeader header;
 
-	std::string line;
-	while (std::getline(file, line)) {
-		if ('#' == line[0]) {
-			// Skip comments
-			continue;
-		} else if (line.starts_with("VERSION")) {
-			// Do not care about the version
-			continue;
-		} else if (line.starts_with("FIELDS")) {
-			std::istringstream iss(line.substr(7));
-			std::string        s;
-			std::size_t        index{};
-			while (iss >> s) {
-				if (header.fields.size() == index) {
-					header.fields.emplace_back();
-				}
+// 	std::string line;
+// 	while (std::getline(file, line)) {
+// 		if ('#' == line[0]) {
+// 			// Skip comments
+// 			continue;
+// 		} else if (line.starts_with("VERSION")) {
+// 			// Do not care about the version
+// 			continue;
+// 		} else if (line.starts_with("FIELDS")) {
+// 			std::istringstream iss(line.substr(7));
+// 			std::string        s;
+// 			std::size_t        index{};
+// 			while (iss >> s) {
+// 				if (header.fields.size() == index) {
+// 					header.fields.emplace_back();
+// 				}
 
-				s = impl::toLower(s);
+// 				s = impl::toLower(s);
 
-				if ("x" == s) {
-					header.fields[index].name = impl::PCDName::X;
-				} else if ("y" == s) {
-					header.fields[index].name = impl::PCDName::Y;
-				} else if ("z" == s) {
-					header.fields[index].name = impl::PCDName::Z;
-				} else if ("intensity" == s) {
-					header.fields[index].name = impl::PCDName::INTENSITY;
-				} else if ("rgb" == s) {
-					header.fields[index].name = impl::PCDName::RGB;
-				} else if ("label" == s) {
-					header.fields[index].name = impl::PCDName::LABEL;
-				} else if ("value" == s) {
-					header.fields[index].name = impl::PCDName::VALUE;
-				} else {
-					header.fields[index].name = impl::PCDName::UNKNOWN;
-				}
-				++index;
-			}
-		} else if (line.starts_with("SIZE")) {
-			std::istringstream iss(line.substr(5));
-			std::size_t        s;
-			std::size_t        index{};
-			while (iss >> s) {
-				if (header.fields.size() == index) {
-					header.fields.emplace_back();
-				}
+// 				if ("x" == s) {
+// 					header.fields[index].name = impl::PCDName::X;
+// 				} else if ("y" == s) {
+// 					header.fields[index].name = impl::PCDName::Y;
+// 				} else if ("z" == s) {
+// 					header.fields[index].name = impl::PCDName::Z;
+// 				} else if ("intensity" == s) {
+// 					header.fields[index].name = impl::PCDName::INTENSITY;
+// 				} else if ("rgb" == s) {
+// 					header.fields[index].name = impl::PCDName::RGB;
+// 				} else if ("label" == s) {
+// 					header.fields[index].name = impl::PCDName::LABEL;
+// 				} else if ("value" == s) {
+// 					header.fields[index].name = impl::PCDName::VALUE;
+// 				} else {
+// 					header.fields[index].name = impl::PCDName::UNKNOWN;
+// 				}
+// 				++index;
+// 			}
+// 		} else if (line.starts_with("SIZE")) {
+// 			std::istringstream iss(line.substr(5));
+// 			std::size_t        s;
+// 			std::size_t        index{};
+// 			while (iss >> s) {
+// 				if (header.fields.size() == index) {
+// 					header.fields.emplace_back();
+// 				}
 
-				header.fields[index].size = s;
-				++index;
-			}
-		} else if (line.starts_with("TYPE")) {
-			std::istringstream iss(line.substr(5));
-			char               s;
-			std::size_t        index{};
-			while (iss >> s) {
-				if (header.fields.size() == index) {
-					header.fields.emplace_back();
-				}
+// 				header.fields[index].size = s;
+// 				++index;
+// 			}
+// 		} else if (line.starts_with("TYPE")) {
+// 			std::istringstream iss(line.substr(5));
+// 			char               s;
+// 			std::size_t        index{};
+// 			while (iss >> s) {
+// 				if (header.fields.size() == index) {
+// 					header.fields.emplace_back();
+// 				}
 
-				if ('I' == s) {
-					header.fields[index].type = impl::PCDType::I;
-				} else if ('U' == s) {
-					header.fields[index].type = impl::PCDType::U;
-				} else if ('F' == s) {
-					header.fields[index].type = impl::PCDType::F;
-				}
-				++index;
-			}
-		} else if (line.starts_with("COUNT")) {
-			std::istringstream iss(line.substr(6));
-			std::size_t        s;
-			std::size_t        index{};
-			while (iss >> s) {
-				if (header.fields.size() == index) {
-					header.fields.emplace_back();
-				}
+// 				if ('I' == s) {
+// 					header.fields[index].type = impl::PCDType::I;
+// 				} else if ('U' == s) {
+// 					header.fields[index].type = impl::PCDType::U;
+// 				} else if ('F' == s) {
+// 					header.fields[index].type = impl::PCDType::F;
+// 				}
+// 				++index;
+// 			}
+// 		} else if (line.starts_with("COUNT")) {
+// 			std::istringstream iss(line.substr(6));
+// 			std::size_t        s;
+// 			std::size_t        index{};
+// 			while (iss >> s) {
+// 				if (header.fields.size() == index) {
+// 					header.fields.emplace_back();
+// 				}
 
-				header.fields[index].count = s;
-				++index;
-			}
-		} else if (line.starts_with("WIDTH")) {
-			std::istringstream iss(line.substr(6));
-			if (!(iss >> header.width)) {
-				// TODO: Error
-			}
-		} else if (line.starts_with("HEIGHT")) {
-			std::istringstream iss(line.substr(7));
-			if (!(iss >> header.height)) {
-				// TODO: Error
-			}
-		} else if (line.starts_with("VIEWPOINT")) {
-			std::istringstream iss(line.substr(10));
-			if (!(iss >> viewpoint.x() >> viewpoint.y() >> viewpoint.z() >> viewpoint.qw() >>
-			      viewpoint.qx() >> viewpoint.qy() >> viewpoint.qz())) {
-				// TODO: Error
-			}
-		} else if (line.starts_with("POINTS")) {
-			// Skip since we can get this from width * height
-		} else if (line.starts_with("DATA")) {
-			auto data = line.substr(5);  // FIXME: Trim
-			if ("ascii" == data) {
-				header.datatype = impl::PCDDataType::ASCII;
-			} else if ("binary" == data) {
-				header.datatype = impl::PCDDataType::BINARY;
-			} else if ("binary_compressed" == data) {
-				header.datatype = impl::PCDDataType::BINARY_COMPRESSED;
-			} else {
-				// TODO: Handle error
-			}
-			break;  // Everything after is data
-		}
-	}
+// 				header.fields[index].count = s;
+// 				++index;
+// 			}
+// 		} else if (line.starts_with("WIDTH")) {
+// 			std::istringstream iss(line.substr(6));
+// 			if (!(iss >> header.width)) {
+// 				// TODO: Error
+// 			}
+// 		} else if (line.starts_with("HEIGHT")) {
+// 			std::istringstream iss(line.substr(7));
+// 			if (!(iss >> header.height)) {
+// 				// TODO: Error
+// 			}
+// 		} else if (line.starts_with("VIEWPOINT")) {
+// 			std::istringstream iss(line.substr(10));
+// 			if (!(iss >> viewpoint.x() >> viewpoint.y() >> viewpoint.z() >> viewpoint.qw() >>
+// 			      viewpoint.qx() >> viewpoint.qy() >> viewpoint.qz())) {
+// 				// TODO: Error
+// 			}
+// 		} else if (line.starts_with("POINTS")) {
+// 			// Skip since we can get this from width * height
+// 		} else if (line.starts_with("DATA")) {
+// 			auto data = line.substr(5);  // FIXME: Trim
+// 			if ("ascii" == data) {
+// 				header.datatype = impl::PCDDataType::ASCII;
+// 			} else if ("binary" == data) {
+// 				header.datatype = impl::PCDDataType::BINARY;
+// 			} else if ("binary_compressed" == data) {
+// 				header.datatype = impl::PCDDataType::BINARY_COMPRESSED;
+// 			} else {
+// 				// TODO: Handle error
+// 			}
+// 			break;  // Everything after is data
+// 		}
+// 	}
 
-	// TODO: Check header
+// 	// TODO: Check header
 
-	std::size_t point_size{};
-	for (auto const& f : header.fields) {
-		point_size += f.size * f.count;
-	}
+// 	std::size_t point_size{};
+// 	for (auto const& f : header.fields) {
+// 		point_size += f.size * f.count;
+// 	}
 
-	cloud.clear();
-	cloud.resize(header.width * header.height);
+// 	cloud.clear();
+// 	cloud.resize(header.width * header.height);
 
-	switch (header.datatype) {
-		case impl::PCDDataType::ASCII: {
-			for (auto& p : cloud) {
-				if (!std::getline(file, line)) {
-					// TODO: Handle error
-				}
+// 	switch (header.datatype) {
+// 		case impl::PCDDataType::ASCII: {
+// 			for (auto& p : cloud) {
+// 				if (!std::getline(file, line)) {
+// 					// TODO: Handle error
+// 				}
 
-				auto s = impl::splitString(line, "\t\r\n ");
+// 				auto s = impl::splitString(line, "\t\r\n ");
 
-				if (s.size() != header.fields.size()) {
-					// TODO: Handle error
-				}
+// 				if (s.size() != header.fields.size()) {
+// 					// TODO: Handle error
+// 				}
 
-				for (std::size_t i{}; auto const& field : header.fields) {
-					if (1 != field.count) {
-						i += field.count;
-						continue;  // Cannot handle anything other than one count
-					}
+// 				for (std::size_t i{}; auto const& field : header.fields) {
+// 					if (1 != field.count) {
+// 						i += field.count;
+// 						continue;  // Cannot handle anything other than one count
+// 					}
 
-					switch (field.name) {
-						case impl::PCDName::X:
-							p.x = impl::unpackASCIIPCDElement<coord_t>(s[i], field.type, field.size);
-							break;
-						case impl::PCDName::Y:
-							p.y = impl::unpackASCIIPCDElement<coord_t>(s[i], field.type, field.size);
-							break;
-						case impl::PCDName::Z:
-							p.z = impl::unpackASCIIPCDElement<coord_t>(s[i], field.type, field.size);
-							break;
-						case impl::PCDName::RGB:
-							if constexpr (IsColor<PointCloud>) {
-								static_cast<Color&>(p) =
-								    impl::unpackASCIIPCDElement<Color>(s[i], field.type, field.size);
-							}
-							break;
-						case impl::PCDName::INTENSITY:
-							if constexpr (IsIntensity<PointCloud>) {
-								p.intensity = impl::unpackASCIIPCDElement<intensity_t>(s[i], field.type,
-								                                                       field.size);
-							}
-							break;
-						case impl::PCDName::LABEL:
-							if constexpr (IsLabel<PointCloud>) {
-								p.label =
-								    impl::unpackASCIIPCDElement<label_t>(s[i], field.type, field.size);
-							}
-							break;
-						case impl::PCDName::VALUE:
-							if constexpr (IsValue<PointCloud>) {
-								p.value =
-								    impl::unpackASCIIPCDElement<value_t>(s[i], field.type, field.size);
-							}
-							break;
-						case impl::PCDName::UNKNOWN: break;
-					}
+// 					switch (field.name) {
+// 						case impl::PCDName::X:
+// 							p.x = impl::unpackASCIIPCDElement<coord_t>(s[i], field.type, field.size);
+// 							break;
+// 						case impl::PCDName::Y:
+// 							p.y = impl::unpackASCIIPCDElement<coord_t>(s[i], field.type, field.size);
+// 							break;
+// 						case impl::PCDName::Z:
+// 							p.z = impl::unpackASCIIPCDElement<coord_t>(s[i], field.type, field.size);
+// 							break;
+// 						case impl::PCDName::RGB:
+// 							if constexpr (IsColor<PointCloud>) {
+// 								static_cast<Color&>(p) =
+// 								    impl::unpackASCIIPCDElement<Color>(s[i], field.type, field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::INTENSITY:
+// 							if constexpr (IsIntensity<PointCloud>) {
+// 								p.intensity = impl::unpackASCIIPCDElement<intensity_t>(s[i], field.type,
+// 								                                                       field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::LABEL:
+// 							if constexpr (IsLabel<PointCloud>) {
+// 								p.label =
+// 								    impl::unpackASCIIPCDElement<label_t>(s[i], field.type, field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::VALUE:
+// 							if constexpr (IsValue<PointCloud>) {
+// 								p.value =
+// 								    impl::unpackASCIIPCDElement<value_t>(s[i], field.type, field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::UNKNOWN: break;
+// 					}
 
-					i += field.count;
-				}
-			}
-			break;
-		}
-		case impl::PCDDataType::BINARY: {
-			std::unique_ptr<char[]> buffer(new char[point_size]);
-			for (auto& p : cloud) {
-				if (!file.read(buffer.get(), point_size)) {
-					// TODO: Handle error
-				}
+// 					i += field.count;
+// 				}
+// 			}
+// 			break;
+// 		}
+// 		case impl::PCDDataType::BINARY: {
+// 			std::unique_ptr<char[]> buffer(new char[point_size]);
+// 			for (auto& p : cloud) {
+// 				if (!file.read(buffer.get(), point_size)) {
+// 					// TODO: Handle error
+// 				}
 
-				for (auto data = buffer.get(); auto const& field : header.fields) {
-					if (1 != field.count) {
-						data += field.count * field.size;
-						continue;  // Cannot handle anything other than one count
-					}
+// 				for (auto data = buffer.get(); auto const& field : header.fields) {
+// 					if (1 != field.count) {
+// 						data += field.count * field.size;
+// 						continue;  // Cannot handle anything other than one count
+// 					}
 
-					switch (field.name) {
-						case impl::PCDName::X:
-							p.x = impl::unpackBinaryPCDElement<coord_t>(data, field.type, field.size);
-							break;
-						case impl::PCDName::Y:
-							p.y = impl::unpackBinaryPCDElement<coord_t>(data, field.type, field.size);
-							break;
-						case impl::PCDName::Z:
-							p.z = impl::unpackBinaryPCDElement<coord_t>(data, field.type, field.size);
-							break;
-						case impl::PCDName::RGB:
-							if constexpr (IsColor<PointCloud>) {
-								static_cast<Color&>(p) =
-								    impl::unpackBinaryPCDElement<Color>(data, field.type, field.size);
-							}
-							break;
-						case impl::PCDName::INTENSITY:
-							if constexpr (IsIntensity<PointCloud>) {
-								p.intensity = impl::unpackBinaryPCDElement<intensity_t>(data, field.type,
-								                                                        field.size);
-							}
-							break;
-						case impl::PCDName::LABEL:
-							if constexpr (IsLabel<PointCloud>) {
-								p.label =
-								    impl::unpackBinaryPCDElement<label_t>(data, field.type, field.size);
-							}
-							break;
-						case impl::PCDName::VALUE:
-							if constexpr (IsValue<PointCloud>) {
-								p.value =
-								    impl::unpackBinaryPCDElement<value_t>(data, field.type, field.size);
-							}
-							break;
-						case impl::PCDName::UNKNOWN: break;
-					}
+// 					switch (field.name) {
+// 						case impl::PCDName::X:
+// 							p.x = impl::unpackBinaryPCDElement<coord_t>(data, field.type, field.size);
+// 							break;
+// 						case impl::PCDName::Y:
+// 							p.y = impl::unpackBinaryPCDElement<coord_t>(data, field.type, field.size);
+// 							break;
+// 						case impl::PCDName::Z:
+// 							p.z = impl::unpackBinaryPCDElement<coord_t>(data, field.type, field.size);
+// 							break;
+// 						case impl::PCDName::RGB:
+// 							if constexpr (IsColor<PointCloud>) {
+// 								static_cast<Color&>(p) =
+// 								    impl::unpackBinaryPCDElement<Color>(data, field.type, field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::INTENSITY:
+// 							if constexpr (IsIntensity<PointCloud>) {
+// 								p.intensity = impl::unpackBinaryPCDElement<intensity_t>(data, field.type,
+// 								                                                        field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::LABEL:
+// 							if constexpr (IsLabel<PointCloud>) {
+// 								p.label =
+// 								    impl::unpackBinaryPCDElement<label_t>(data, field.type, field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::VALUE:
+// 							if constexpr (IsValue<PointCloud>) {
+// 								p.value =
+// 								    impl::unpackBinaryPCDElement<value_t>(data, field.type, field.size);
+// 							}
+// 							break;
+// 						case impl::PCDName::UNKNOWN: break;
+// 					}
 
-					data += field.count * field.size;
-				}
-			}
-			break;
-		}
-		case impl::PCDDataType::BINARY_COMPRESSED: {
-			// TODO: Implement
-			break;
-		}
-	}
-}
+// 					data += field.count * field.size;
+// 				}
+// 			}
+// 			break;
+// 		}
+// 		case impl::PCDDataType::BINARY_COMPRESSED: {
+// 			// TODO: Implement
+// 			break;
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void readPointCloudPCD(std::filesystem::path const& file, PointCloud& cloud)
-{
-	Pose6f pose;
-	readPointCloudPCD(file, cloud, pose);
-}
+// template <class PointCloud>
+// void readPointCloudPCD(std::filesystem::path const& file, PointCloud& cloud)
+// {
+// 	Pose6f pose;
+// 	readPointCloudPCD(file, cloud, pose);
+// }
 
-template <class PointCloud>
-void readPointCloudPTS(std::filesystem::path const& filename, PointCloud& cloud)
-{
-	std::ifstream file;
-	file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	file.imbue(std::locale());
-	file.open(filename);
+// template <class PointCloud>
+// void readPointCloudPTS(std::filesystem::path const& filename, PointCloud& cloud)
+// {
+// 	std::ifstream file;
+// 	file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+// 	file.imbue(std::locale());
+// 	file.open(filename);
 
-	std::string line;
-	if (!std::getline(file, line)) {
-		// TODO: Handle error
-	}
+// 	std::string line;
+// 	if (!std::getline(file, line)) {
+// 		// TODO: Handle error
+// 	}
 
-	std::istringstream iss(line);
+// 	std::istringstream iss(line);
 
-	std::size_t num_points;
-	if (!(iss >> num_points)) {
-		// TODO: Handle error
-	}
+// 	std::size_t num_points;
+// 	if (!(iss >> num_points)) {
+// 		// TODO: Handle error
+// 	}
 
-	cloud.clear();
-	cloud.resize(num_points);
+// 	cloud.clear();
+// 	cloud.resize(num_points);
 
-	for (auto& p : cloud) {
-		if (!std::getline(file, line)) {
-			// TODO: Handle error
-		}
+// 	for (auto& p : cloud) {
+// 		if (!std::getline(file, line)) {
+// 			// TODO: Handle error
+// 		}
 
-		iss = line;
+// 		iss = line;
 
-		if (!(iss >> p.x >> p.y >> p.z)) {
-			// TODO: Handle error
-		}
+// 		if (!(iss >> p.x >> p.y >> p.z)) {
+// 			// TODO: Handle error
+// 		}
 
-		if constexpr (IsIntensity<PointCloud>) {
-			if (!(iss >> p.intensity)) {
-				// TODO: Handle error
-			}
-		}
+// 		if constexpr (IsIntensity<PointCloud>) {
+// 			if (!(iss >> p.intensity)) {
+// 				// TODO: Handle error
+// 			}
+// 		}
 
-		if constexpr (IsColor<PointCloud>) {
-			if (!(iss >> p.red >> p.green >> p.blue)) {
-				// TODO: Handle error
-			}
-		}
-	}
-}
+// 		if constexpr (IsColor<PointCloud>) {
+// 			if (!(iss >> p.red >> p.green >> p.blue)) {
+// 				// TODO: Handle error
+// 			}
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void readPointCloud(std::filesystem::path const& file, PointCloud& cloud)
-{
-	// FIXME: Make lower case
-	auto ext = file.extension().string();
-	if (".xyz" == ext) {
-		return readPointCloudXYZ(file, cloud);
-	} else if (".xyzi" == ext) {
-		return readPointCloudXYZI(file, cloud);
-	} else if (".xyzrgb" == ext) {
-		return readPointCloudXYZRGB(file, cloud);
-	} else if (".xyzirgb" == ext) {
-		return readPointCloudXYZIRGB(file, cloud);
-	} else if (".ply" == ext) {
-		return readPointCloudPLY(file, cloud);
-	} else if (".pcd" == ext) {
-		return readPointCloudPCD(file, cloud);
-	} else if (".pts" == ext) {
-		return readPointCloudPTS(file, cloud);
-	} else {
-		// TODO: Cannot read file format
-	}
-}
+// template <class PointCloud>
+// void readPointCloud(std::filesystem::path const& file, PointCloud& cloud)
+// {
+// 	// FIXME: Make lower case
+// 	auto ext = file.extension().string();
+// 	if (".xyz" == ext) {
+// 		return readPointCloudXYZ(file, cloud);
+// 	} else if (".xyzi" == ext) {
+// 		return readPointCloudXYZI(file, cloud);
+// 	} else if (".xyzrgb" == ext) {
+// 		return readPointCloudXYZRGB(file, cloud);
+// 	} else if (".xyzirgb" == ext) {
+// 		return readPointCloudXYZIRGB(file, cloud);
+// 	} else if (".ply" == ext) {
+// 		return readPointCloudPLY(file, cloud);
+// 	} else if (".pcd" == ext) {
+// 		return readPointCloudPCD(file, cloud);
+// 	} else if (".pts" == ext) {
+// 		return readPointCloudPTS(file, cloud);
+// 	} else {
+// 		// TODO: Cannot read file format
+// 	}
+// }
 
-template <class PointCloud>
-void writePointCloudXYZ(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	std::ofstream f;
-	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-	f.imbue(std::locale());
-	f.open(file, std::ios_base::out | std::ios_base::binary);
+// template <class PointCloud>
+// void writePointCloudXYZ(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	std::ofstream f;
+// 	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file, std::ios_base::out | std::ios_base::binary);
 
-	f << std::fixed << std::setprecision(10);
+// 	f << std::fixed << std::setprecision(10);
 
-	for (auto const& p : cloud) {
-		f << p.x << ' ' << p.y << ' ' << p.z << '\n';
-	}
-}
+// 	for (auto const& p : cloud) {
+// 		f << p.x << ' ' << p.y << ' ' << p.z << '\n';
+// 	}
+// }
 
-template <class PointCloud>
-void writePointCloudXYZI(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	std::ofstream f;
-	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-	f.imbue(std::locale());
-	f.open(file, std::ios_base::out | std::ios_base::binary);
+// template <class PointCloud>
+// void writePointCloudXYZI(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	std::ofstream f;
+// 	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file, std::ios_base::out | std::ios_base::binary);
 
-	f << std::fixed << std::setprecision(10);
+// 	f << std::fixed << std::setprecision(10);
 
-	for (auto const& p : cloud) {
-		f << p.x << ' ' << p.y << ' ' << p.z;
-		if constexpr (IsIntensity<PointCloud>) {
-			f << ' ' << p.intensity << '\n';
-		} else {
-			f << " 0\n";
-		}
-	}
-}
+// 	for (auto const& p : cloud) {
+// 		f << p.x << ' ' << p.y << ' ' << p.z;
+// 		if constexpr (IsIntensity<PointCloud>) {
+// 			f << ' ' << p.intensity << '\n';
+// 		} else {
+// 			f << " 0\n";
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void writePointCloudXYZRGB(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	std::ofstream f;
-	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-	f.imbue(std::locale());
-	f.open(file, std::ios_base::out | std::ios_base::binary);
+// template <class PointCloud>
+// void writePointCloudXYZRGB(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	std::ofstream f;
+// 	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file, std::ios_base::out | std::ios_base::binary);
 
-	f << std::fixed << std::setprecision(10);
+// 	f << std::fixed << std::setprecision(10);
 
-	for (auto const& p : cloud) {
-		f << p.x << ' ' << p.y << ' ' << p.z;
-		if constexpr (IsColor<PointCloud>) {
-			f << ' '
-			  << (static_cast<double>(p.red) /
-			      static_cast<double>(std::numeric_limits<color_t>::max()))
-			  << ' '
-			  << (static_cast<double>(p.green) /
-			      static_cast<double>(std::numeric_limits<color_t>::max()))
-			  << ' '
-			  << (static_cast<double>(p.blue) /
-			      static_cast<double>(std::numeric_limits<color_t>::max()))
-			  << '\n';
-		} else {
-			f << " 0.0 0.0 0.0\n";
-		}
-	}
-}
+// 	for (auto const& p : cloud) {
+// 		f << p.x << ' ' << p.y << ' ' << p.z;
+// 		if constexpr (IsColor<PointCloud>) {
+// 			f << ' '
+// 			  << (static_cast<double>(p.red) /
+// 			      static_cast<double>(std::numeric_limits<color_t>::max()))
+// 			  << ' '
+// 			  << (static_cast<double>(p.green) /
+// 			      static_cast<double>(std::numeric_limits<color_t>::max()))
+// 			  << ' '
+// 			  << (static_cast<double>(p.blue) /
+// 			      static_cast<double>(std::numeric_limits<color_t>::max()))
+// 			  << '\n';
+// 		} else {
+// 			f << " 0.0 0.0 0.0\n";
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void writePointCloudXYZIRGB(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	std::ofstream f;
-	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-	f.imbue(std::locale());
-	f.open(file, std::ios_base::out | std::ios_base::binary);
+// template <class PointCloud>
+// void writePointCloudXYZIRGB(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	std::ofstream f;
+// 	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file, std::ios_base::out | std::ios_base::binary);
 
-	f << std::fixed << std::setprecision(10);
+// 	f << std::fixed << std::setprecision(10);
 
-	for (auto const& p : cloud) {
-		f << p.x << ' ' << p.y << ' ' << p.z << ' ';
-		if constexpr (IsIntensity<PointCloud>) {
-			f << p.intensity;
-		} else {
-			f << '0';
-		}
-		if constexpr (IsColor<PointCloud>) {
-			f << ' '
-			  << (static_cast<double>(p.red) /
-			      static_cast<double>(std::numeric_limits<color_t>::max()))
-			  << ' '
-			  << (static_cast<double>(p.green) /
-			      static_cast<double>(std::numeric_limits<color_t>::max()))
-			  << ' '
-			  << (static_cast<double>(p.blue) /
-			      static_cast<double>(std::numeric_limits<color_t>::max()))
-			  << '\n';
-		} else {
-			f << " 0.0 0.0 0.0\n";
-		}
-	}
-}
+// 	for (auto const& p : cloud) {
+// 		f << p.x << ' ' << p.y << ' ' << p.z << ' ';
+// 		if constexpr (IsIntensity<PointCloud>) {
+// 			f << p.intensity;
+// 		} else {
+// 			f << '0';
+// 		}
+// 		if constexpr (IsColor<PointCloud>) {
+// 			f << ' '
+// 			  << (static_cast<double>(p.red) /
+// 			      static_cast<double>(std::numeric_limits<color_t>::max()))
+// 			  << ' '
+// 			  << (static_cast<double>(p.green) /
+// 			      static_cast<double>(std::numeric_limits<color_t>::max()))
+// 			  << ' '
+// 			  << (static_cast<double>(p.blue) /
+// 			      static_cast<double>(std::numeric_limits<color_t>::max()))
+// 			  << '\n';
+// 		} else {
+// 			f << " 0.0 0.0 0.0\n";
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void writePointCloudPLY(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	// TODO: Implement
-}
+// template <class PointCloud>
+// void writePointCloudPLY(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	// TODO: Implement
+// }
 
 template <class PointCloud>
 void writePointCloudPCD(std::filesystem::path const& file, PointCloud const& cloud,
@@ -866,63 +945,63 @@ void writePointCloudPCD(std::filesystem::path const& file, PointCloud const& clo
 	f << "# .PCD v0.7 - Point Cloud Data file format\n";
 	f << "VERSION 0.7\n";
 	f << "FIELDS x y z";
-	if constexpr (IsColor<PointCloud>) {
-		f << " rgb";
-	}
-	if constexpr (IsIntensity<PointCloud>) {
-		f << " intensity";
-	}
-	if constexpr (IsLabel<PointCloud>) {
-		f << " label";
-	}
-	if constexpr (IsValue<PointCloud>) {
-		f << " value";
-	}
+	// if constexpr (IsColor<PointCloud>) {
+	// 	f << " rgb";
+	// }
+	// if constexpr (IsIntensity<PointCloud>) {
+	// 	f << " intensity";
+	// }
+	// if constexpr (IsLabel<PointCloud>) {
+	// 	f << " label";
+	// }
+	// if constexpr (IsValue<PointCloud>) {
+	// 	f << " value";
+	// }
 	f << '\n';
 
 	f << "SIZE 4 4 4";
-	if constexpr (IsColor<PointCloud>) {
-		f << " 4";
-	}
-	if constexpr (IsIntensity<PointCloud>) {
-		f << " 4";
-	}
-	if constexpr (IsLabel<PointCloud>) {
-		f << " 4";
-	}
-	if constexpr (IsValue<PointCloud>) {
-		f << " 4";
-	}
+	// if constexpr (IsColor<PointCloud>) {
+	// 	f << " 4";
+	// }
+	// if constexpr (IsIntensity<PointCloud>) {
+	// 	f << " 4";
+	// }
+	// if constexpr (IsLabel<PointCloud>) {
+	// 	f << " 4";
+	// }
+	// if constexpr (IsValue<PointCloud>) {
+	// 	f << " 4";
+	// }
 	f << '\n';
 
 	f << "TYPE F F F";
-	if constexpr (IsColor<PointCloud>) {
-		f << " F";
-	}
-	if constexpr (IsIntensity<PointCloud>) {
-		f << " F";
-	}
-	if constexpr (IsLabel<PointCloud>) {
-		f << " U";
-	}
-	if constexpr (IsValue<PointCloud>) {
-		f << " F";
-	}
+	// if constexpr (IsColor<PointCloud>) {
+	// 	f << " F";
+	// }
+	// if constexpr (IsIntensity<PointCloud>) {
+	// 	f << " F";
+	// }
+	// if constexpr (IsLabel<PointCloud>) {
+	// 	f << " U";
+	// }
+	// if constexpr (IsValue<PointCloud>) {
+	// 	f << " F";
+	// }
 	f << '\n';
 
 	f << "COUNT 1 1 1";
-	if constexpr (IsColor<PointCloud>) {
-		f << " 1";
-	}
-	if constexpr (IsIntensity<PointCloud>) {
-		f << " 1";
-	}
-	if constexpr (IsLabel<PointCloud>) {
-		f << " 1";
-	}
-	if constexpr (IsValue<PointCloud>) {
-		f << " 1";
-	}
+	// if constexpr (IsColor<PointCloud>) {
+	// 	f << " 1";
+	// }
+	// if constexpr (IsIntensity<PointCloud>) {
+	// 	f << " 1";
+	// }
+	// if constexpr (IsLabel<PointCloud>) {
+	// 	f << " 1";
+	// }
+	// if constexpr (IsValue<PointCloud>) {
+	// 	f << " 1";
+	// }
 	f << '\n';
 
 	f << "WIDTH " << cloud.size() << '\n';
@@ -943,19 +1022,19 @@ void writePointCloudPCD(std::filesystem::path const& file, PointCloud const& clo
 		f << std::fixed << std::setprecision(10);
 		for (auto const& p : cloud) {
 			f << p.x << ' ' << p.y << ' ' << p.z;
-			if constexpr (IsColor<PointCloud>) {
-				std::uint32_t rgb = (p.red << 16) | (p.green << 8) | p.blue;
-				f << ' ' << rgb;
-			}
-			if constexpr (IsIntensity<PointCloud>) {
-				f << ' ' << p.intensity;
-			}
-			if constexpr (IsLabel<PointCloud>) {
-				f << ' ' << p.label;
-			}
-			if constexpr (IsValue<PointCloud>) {
-				f << ' ' << p.value;
-			}
+			// if constexpr (IsColor<PointCloud>) {
+			// 	std::uint32_t rgb = (p.red << 16) | (p.green << 8) | p.blue;
+			// 	f << ' ' << rgb;
+			// }
+			// if constexpr (IsIntensity<PointCloud>) {
+			// 	f << ' ' << p.intensity;
+			// }
+			// if constexpr (IsLabel<PointCloud>) {
+			// 	f << ' ' << p.label;
+			// }
+			// if constexpr (IsValue<PointCloud>) {
+			// 	f << ' ' << p.value;
+			// }
 			f << '\n';
 		}
 	} else if (compressed) {
@@ -975,59 +1054,59 @@ void writePointCloudPCD(std::filesystem::path const& file, PointCloud const& clo
 	}
 }
 
-template <class PointCloud>
-void writePointCloudPTS(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	std::ofstream f;
-	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-	f.imbue(std::locale());
-	f.open(file, std::ios_base::out | std::ios_base::binary);
+// template <class PointCloud>
+// void writePointCloudPTS(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	std::ofstream f;
+// 	f.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+// 	f.imbue(std::locale());
+// 	f.open(file, std::ios_base::out | std::ios_base::binary);
 
-	f << std::fixed << std::setprecision(10);
+// 	f << std::fixed << std::setprecision(10);
 
-	f << cloud.size() << '\n';
+// 	f << cloud.size() << '\n';
 
-	// x y z intensity red green blue
-	// It is not specified what intensity should be (see
-	// https://www.danielgm.net/cc/forum/viewtopic.php?t=1307)
-	for (auto const& p : cloud) {
-		f << p.x << ' ' << p.y << ' ' << p.z << ' ';
-		if constexpr (IsIntensity<PointCloud>) {
-			f << p.intensity;
-		} else {
-			f << '0';
-		}
-		if constexpr (IsColor<PointCloud>) {
-			f << ' ' << +p.red << ' ' << +p.green << ' ' << +p.blue << '\n';
-		} else {
-			f << " 0 0 0\n";
-		}
-	}
-}
+// 	// x y z intensity red green blue
+// 	// It is not specified what intensity should be (see
+// 	// https://www.danielgm.net/cc/forum/viewtopic.php?t=1307)
+// 	for (auto const& p : cloud) {
+// 		f << p.x << ' ' << p.y << ' ' << p.z << ' ';
+// 		if constexpr (IsIntensity<PointCloud>) {
+// 			f << p.intensity;
+// 		} else {
+// 			f << '0';
+// 		}
+// 		if constexpr (IsColor<PointCloud>) {
+// 			f << ' ' << +p.red << ' ' << +p.green << ' ' << +p.blue << '\n';
+// 		} else {
+// 			f << " 0 0 0\n";
+// 		}
+// 	}
+// }
 
-template <class PointCloud>
-void writePointCloud(std::filesystem::path const& file, PointCloud const& cloud)
-{
-	// FIXME: Make lower case
-	auto ext = file.extension().string();
-	if (".xyz" == ext) {
-		return writePointCloudXYZ(file, cloud);
-	} else if (".xyzi" == ext) {
-		return writePointCloudXYZI(file, cloud);
-	} else if (".xyzrgb" == ext) {
-		return writePointCloudXYZRGB(file, cloud);
-	} else if (".xyzirgb" == ext) {
-		return writePointCloudXYZIRGB(file, cloud);
-	} else if (".ply" == ext) {
-		return writePointCloudPLY(file, cloud);
-	} else if (".pcd" == ext) {
-		return writePointCloudPCD(file, cloud);
-	} else if (".pts" == ext) {
-		return writePointCloudPTS(file, cloud);
-	} else {
-		// TODO: Cannot read file format
-	}
-}
+// template <class PointCloud>
+// void writePointCloud(std::filesystem::path const& file, PointCloud const& cloud)
+// {
+// 	// FIXME: Make lower case
+// 	auto ext = file.extension().string();
+// 	if (".xyz" == ext) {
+// 		return writePointCloudXYZ(file, cloud);
+// 	} else if (".xyzi" == ext) {
+// 		return writePointCloudXYZI(file, cloud);
+// 	} else if (".xyzrgb" == ext) {
+// 		return writePointCloudXYZRGB(file, cloud);
+// 	} else if (".xyzirgb" == ext) {
+// 		return writePointCloudXYZIRGB(file, cloud);
+// 	} else if (".ply" == ext) {
+// 		return writePointCloudPLY(file, cloud);
+// 	} else if (".pcd" == ext) {
+// 		return writePointCloudPCD(file, cloud);
+// 	} else if (".pts" == ext) {
+// 		return writePointCloudPTS(file, cloud);
+// 	} else {
+// 		// TODO: Cannot read file format
+// 	}
+// }
 
 #ifdef UFO_PARALLEL
 /*!
@@ -1035,33 +1114,33 @@ void writePointCloud(std::filesystem::path const& file, PointCloud const& cloud)
  *
  * @param transform The transformation to be applied to each point
  */
-template <class ExecutionPolicy, class InputIt, typename T>
-  requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
-void applyTransform(ExecutionPolicy&& policy, InputIt first, InputIt last,
-                    Pose6<T> const& transform)
-{
-	std::for_each(std::forward<ExecutionPolicy>(policy), first, last,
-	              [t = transform.translation, r = transform.rotation.rotMatrix()](auto& p) {
-		              auto const x = p.x;
-		              auto const y = p.y;
-		              auto const z = p.z;
-		              p.x          = r[0] * x + r[1] * y + r[2] * z + t.x;
-		              p.y          = r[3] * x + r[4] * y + r[5] * z + t.y;
-		              p.z          = r[6] * x + r[7] * y + r[8] * z + t.z;
-	              });
-}
+// template <class ExecutionPolicy, class InputIt, typename T>
+//   requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
+// void applyTransform(ExecutionPolicy&& policy, InputIt first, InputIt last,
+//                     Pose6<T> const& transform)
+// {
+// 	std::for_each(std::forward<ExecutionPolicy>(policy), first, last,
+// 	              [t = transform.translation, r = transform.rotation.rotMatrix()](auto& p) {
+// 		              auto const x = p.x;
+// 		              auto const y = p.y;
+// 		              auto const z = p.z;
+// 		              p.x          = r[0] * x + r[1] * y + r[2] * z + t.x;
+// 		              p.y          = r[3] * x + r[4] * y + r[5] * z + t.y;
+// 		              p.z          = r[6] * x + r[7] * y + r[8] * z + t.z;
+// 	              });
+// }
 
-template <class ExecutionPolicy, class PointCloud, typename T>
-  requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
-void applyTransform(ExecutionPolicy&& policy, PointCloud& cloud,
-                    Pose6<T> const& transform)
-{
-	applyTransform(std::forward<ExecutionPolicy>(policy), std::begin(cloud),
-	               std::end(cloud), transform);
-}
+// template <class ExecutionPolicy, class PointCloud, typename T>
+//   requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
+// void applyTransform(ExecutionPolicy&& policy, PointCloud& cloud,
+//                     Pose6<T> const& transform)
+// {
+// 	applyTransform(std::forward<ExecutionPolicy>(policy), std::begin(cloud),
+// 	               std::end(cloud), transform);
+// }
 
 template <class ExecutionPolicy, class PointCloud>
-  requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
+//   requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
 void removeNaN(ExecutionPolicy&& policy, PointCloud& cloud)
 {
 	auto it = std::remove_if(std::forward<ExecutionPolicy>(policy), std::begin(cloud),
@@ -1073,7 +1152,7 @@ void removeNaN(ExecutionPolicy&& policy, PointCloud& cloud)
 }
 
 template <class ExecutionPolicy, class PointCloud>
-  requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
+//   requires std::is_execution_policy_v<std::remove_cvref_t<ExecutionPolicy>>
 void filterDistance(ExecutionPolicy&& policy, PointCloud& cloud, Point origin,
                     float max_distance)
 {
@@ -1084,6 +1163,7 @@ void filterDistance(ExecutionPolicy&& policy, PointCloud& cloud, Point origin,
                            });
 	cloud.erase(it, std::end(cloud));
 }
+
 #endif
 }  // namespace ufo
 

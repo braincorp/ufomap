@@ -47,32 +47,32 @@
 #include <ufo/geometry/minimum_distance.hpp>
 #include <ufo/map/bit_set.hpp>
 #include <ufo/map/code.hpp>
-#include <ufo/map/color/color_map.hpp>
-#include <ufo/map/count/count_map.hpp>
-#include <ufo/map/free/free_map.hpp>
+#include <ufo/map/integration/misses.hpp>
+// #include <ufo/map/color/color_map.hpp>
+// #include <ufo/map/count/count_map.hpp>
+// #include <ufo/map/free/free_map.hpp>
 #include <ufo/map/integration/grid.hpp>
 #include <ufo/map/integration/integration.hpp>
 #include <ufo/map/integration/integration_parameters.hpp>
 #include <ufo/map/integration/integration_point.hpp>
 #include <ufo/map/integration/integration_point_cloud.hpp>
-#include <ufo/map/integration/misses.hpp>
-#include <ufo/map/intensity/intensity_map.hpp>
+// #include <ufo/map/intensity/intensity_map.hpp>
 #include <ufo/map/key.hpp>
-#include <ufo/map/label/label_map.hpp>
+// #include <ufo/map/label/label_map.hpp>
 #include <ufo/map/occupancy/occupancy_map.hpp>
 #include <ufo/map/point.hpp>
 #include <ufo/map/point_cloud.hpp>
-#include <ufo/map/points/points_map.hpp>
+// #include <ufo/map/points/points_map.hpp>
 // #include <ufo/map/points_color/points_color_map.hpp>
 #include <ufo/map/ray_caster/ray_caster.hpp>
-#include <ufo/map/reflection/reflection.hpp>
-#include <ufo/map/reflection/reflection_map.hpp>
-#include <ufo/map/semantic/semantic_map.hpp>
+// #include <ufo/map/reflection/reflection.hpp>
+// #include <ufo/map/reflection/reflection_map.hpp>
+// #include <ufo/map/semantic/semantic_map.hpp>
 // #include <ufo/map/surfel/surfel_map.hpp>
-#include <ufo/map/seen_free/seen_free_map.hpp>
-#include <ufo/map/time/time_map.hpp>
+// #include <ufo/map/seen_free/seen_free_map.hpp>
+// #include <ufo/map/time/time_map.hpp>
 #include <ufo/map/types.hpp>
-#include <ufo/map/value/value_map.hpp>
+// #include <ufo/map/value/value_map.hpp>
 #include <ufo/math/pose6.hpp>
 #include <ufo/util/timing.hpp>
 #include <ufo/util/type_traits.hpp>
@@ -124,11 +124,18 @@ auto toIntegrationCloud(Map const& map, Cloud<P...> const& points,
 	} else
 #endif
 	{
-		std::ranges::transform(points, std::begin(ic), [&map](auto const& p) {
-			return IntegrationPoint(p, map.toCode(p));
-		});
+		// std::ranges::transform(points, std::begin(ic), [&map](auto const& p) {
+		// 	return IntegrationPoint(p, map.toCode(p));
+		// });
 
-		std::ranges::sort(ic, [](auto const& a, auto const& b) { return a.code < b.code; });
+		// std::ranges::sort(ic, [](auto const& a, auto const& b) { return a.code < b.code;
+		// });
+
+		std::transform(points.begin(), points.end(), ic.begin(),
+		               [&map](auto const& p) { return IntegrationPoint(p, map.toCode(p)); });
+
+		std::sort(ic.begin(), ic.end(),
+		          [](auto const& a, auto const& b) { return a.code < b.code; });
 	}
 
 	return ic;
@@ -153,11 +160,11 @@ template <class Map, class P>
 			break;
 		case DownSamplingMethod::CENTER:
 			for (auto it = std::cbegin(points), last = std::cend(points); it != last;) {
-				auto c   = it->code.toDepth(depth);
-				auto cur = it;
-				it       = std::find_if_not(++it, last, [c, depth](auto const& e) {
-          return Code::equalAtDepth(e.code, c, depth);
-        });
+				auto c = it->code.toDepth(depth);
+				// auto cur = it;
+				it = std::find_if_not(++it, last, [c, depth](auto const& e) {
+					return Code::equalAtDepth(e.code, c, depth);
+				});
 				down_sampled.push_back(map.toCoord(c));
 			}
 			break;
@@ -217,12 +224,12 @@ template <class Map, class P>
 	CodeUnorderedMap<Grid> misses;
 	CodeUnorderedMap<Grid> hits;
 
-	Key const   origin_key          = map.toKey(sensor_origin, depth);
-	Point const origin_coord        = map.toCoord(origin_key);
-	float const step_size_factor    = params.simple_ray_casting_factor;
-	bool const  simple              = RayCastingMethod::SIMPLE == params.ray_casting_method;
-	float const early_stop_distance = params.early_stop_distance;
-	float const min_distance        = params.min_range;
+	Key const   origin_key   = map.toKey(sensor_origin, depth);
+	Point const origin_coord = map.toCoord(origin_key);
+	// float const step_size_factor    = params.simple_ray_casting_factor;
+	// bool const  simple              = RayCastingMethod::SIMPLE ==
+	// params.ray_casting_method; float const early_stop_distance =
+	// params.early_stop_distance;
 	float const max_distance =
 	    0 > params.max_range ? std::numeric_limits<float>::max() : params.max_range;
 	float const max_distance_sq              = max_distance * max_distance;
@@ -236,13 +243,17 @@ template <class Map, class P>
 	// inflate_unknown_compensation ? inflate_unknown * grid_size : 0;  // * std::sqrt(3)
 	bool const  ray_passthrough_hits = params.ray_passthrough_hits;
 	float const inflate_hits_dist    = params.inflate_hits_dist;
-	std::size_t num_threads{};
+	std::size_t num_threads          = params.num_threads;
 
 	params.timing[5][2].start();
 #ifdef UFO_PARALLEL
+	float const min_distance = params.min_range;
 	if (params.parallel) {
 		num_threads = 0 == params.num_threads ? 8 * std::thread::hardware_concurrency()
 		                                      : params.num_threads;
+		// std::cout << "ggggggggggg num_threads " << num_threads << std::endl;
+		// std::cout << "ggggggggggg std::thread::hardware_concurrency() " <<
+		// std::thread::hardware_concurrency() << std::endl;
 #pragma omp parallel num_threads(num_threads)
 		{
 			CodeUnorderedMap<Grid> thread_hits;
@@ -377,18 +388,18 @@ template <class Map, class P>
 template <class Map, class P>
 void integrateHits(Map& map, IntegrationCloud<P> points, IntegrationParams const& params)
 {
-	auto const depth = params.hit_depth;
-	if (depth) {
-		for (auto& p : points) {
-			p.code = p.code.toDepth(depth);
-		}
-	}
+	// auto const depth = params.hit_depth;
+	// if (depth) {
+	// 	for (auto& p : points) {
+	// 		p.code = p.code.toDepth(depth);
+	// 	}
+	// }
 
 	params.timing[4][1].start();
 	map.createIndicesFromCodes(points);
 	params.timing[4][1].stop();
 
-	auto    time = params.time;
+	//  auto    time = params.time;
 	logit_t prob{};
 	if constexpr (IsOccupancyMap<Map>) {
 		prob = map.toOccupancyChangeLogit(params.occupancy_hit);
@@ -406,25 +417,25 @@ void integrateHits(Map& map, IntegrationCloud<P> points, IntegrationParams const
 			map.updateOccupancyLogit(node, prob);
 		}
 
-		if constexpr (IsTimeMap<Map>) {
-			map.setTime(node, time);
-		}
+		// if constexpr (IsTimeMap<Map>) {
+		// 	map.setTime(node, time);
+		// }
 
-		if constexpr (IsColorMap<Map> && IsColor<P>) {
-			// TODO: Implement
-		}
+		// if constexpr (IsColorMap<Map> && IsColor<P>) {
+		// 	// TODO: Implement
+		// }
 
-		if constexpr (IsCountMap<Map>) {
-			map.updateCount(node, 1);
-		}
+		// if constexpr (IsCountMap<Map>) {
+		// 	map.updateCount(node, 1);
+		// }
 
-		if constexpr (IsReflectionMap<Map>) {
-			map.updateReflection(node, std::distance(cur, it), 0);
-		}
+		// if constexpr (IsReflectionMap<Map>) {
+		// 	map.updateReflection(node, std::distance(cur, it), 0);
+		// }
 
-		if constexpr (IsPointsMap<Map>) {
-			map.insertPoints(node, cur, it);
-		}
+		// if constexpr (IsPointsMap<Map>) {
+		// 	map.insertPoints(node, cur, it);
+		// }
 
 		// if constexpr (IsPointsColorMap<Map> && IsColor<P>) {
 		// 	// if (1 > map.numPoints(cur->index)) {  // TODO: Remove
@@ -432,28 +443,29 @@ void integrateHits(Map& map, IntegrationCloud<P> points, IntegrationParams const
 		// 	// }
 		// }
 
-		if constexpr (IsIntensityMap<Map> && IsIntensity<P>) {
-			// TODO: Implement
-		}
+		// if constexpr (IsIntensityMap<Map> && IsIntensity<P>) {
+		// 	// TODO: Implement
+		// }
 
-		if constexpr (IsLabelMap<Map> && IsLabel<P>) {
-			// TODO: Implement
-		}
+		// if constexpr (IsLabelMap<Map> && IsLabel<P>) {
+		// 	// TODO: Implement
+		// }
 
-		if constexpr (IsSemanticMap<Map> && IsSemantic<P>) {
-			// TODO: Implement
-		}
+		// if constexpr (IsSemanticMap<Map> && IsSemantic<P>) {
+		// 	// TODO: Implement
+		// }
 
-		if constexpr (IsValueMap<Map> && IsValue<P>) {
-			// float min = std::numeric_limits<float>::max();
-			// for (auto it = std::cbegin(points) + i.first, last = std::cbegin(points) +
-			// i.second;
-			//      it != last; ++it) {
-			// 	min = std::min(min, it->value);
-			// }
-			// map.updateValue(
-			//     node, [min](value_t cur) { return 0.0f != cur ? std::min(min, cur) : min; });
-		}
+		// if constexpr (IsValueMap<Map> && IsValue<P>) {
+		// 	// float min = std::numeric_limits<float>::max();
+		// 	// for (auto it = std::cbegin(points) + i.first, last = std::cbegin(points) +
+		// 	// i.second;
+		// 	//      it != last; ++it) {
+		// 	// 	min = std::min(min, it->value);
+		// 	// }
+		// 	// map.updateValue(
+		// 	//     node, [min](value_t cur) { return 0.0f != cur ? std::min(min, cur) : min;
+		// });
+		// }
 
 		// if constexpr (IsSurfelMap<Map>) {
 		// 	// TODO: Implement
@@ -467,7 +479,7 @@ void integrateHits(Map& map, IntegrationCloud<P> points, IntegrationParams const
 //
 
 template <class Map>
-void integrateMisses(Map& map, Misses misses, IntegrationParams const& params)
+void integrateMisses(Map& map, Misses&& misses, IntegrationParams const& params)
 {
 	params.timing[6][1].start();
 	map.createIndicesFromCodes(misses);
@@ -475,7 +487,7 @@ void integrateMisses(Map& map, Misses misses, IntegrationParams const& params)
 
 	logit_t prob{};
 	if constexpr (IsOccupancyMap<Map>) {
-		auto prob = map.toOccupancyChangeLogit(params.occupancy_miss);
+		prob = map.toOccupancyChangeLogit(params.occupancy_miss);
 	}
 
 	params.timing[6][2].start();
@@ -490,33 +502,36 @@ void integrateMisses(Map& map, Misses misses, IntegrationParams const& params)
 					              map.setModified(node);
 
 					              if constexpr (IsOccupancyMap<Map>) {
-						              map.decreaseOccupancyLogit(node, prob);
+						              //   map.decreaseOccupancyLogit(node, prob);
+						              map.updateOccupancyLogit(node, prob);
+						              //  std::cout << "occupancy updateOccupancyLogit prob " << prob
+						              //  << std::endl;
 					              }
 
-					              if constexpr (IsTimeMap<Map>) {
-						              map.setTime(node, time);
-					              }
+					              //    if constexpr (IsTimeMap<Map>) {
+					              // 	   map.setTime(node, time);
+					              //    }
 
-					              if constexpr (IsReflectionMap<Map>) {
-						              map.updateReflection(node, 0, 1);
-					              }
+					              //    if constexpr (IsReflectionMap<Map>) {
+					              // 	   map.updateReflection(node, 0, 1);
+					              //    }
 
-					              if constexpr (IsFreeMap<Map>) {
-						              map.updateFree(node, [freedom = miss.freedom](auto cur) {
-							              return std::max(cur, freedom);
-						              });
-					              }
+					              //    if constexpr (IsFreeMap<Map>) {
+					              // 	   map.updateFree(node, [freedom = miss.freedom](auto cur) {
+					              // 		   return std::max(cur, freedom);
+					              // 	   });
+					              //    }
 
-					              if constexpr (IsSeenFreeMap<Map>) {
-						              map.setSeenFree(node);
-					              }
+					              //    if constexpr (IsSeenFreeMap<Map>) {
+					              // 	   map.setSeenFree(node);
+					              //    }
 				              }
 			              }
 		              });
 	} else
 #endif
 	{
-		for (auto miss : misses) {
+		for (const auto& miss : misses) {
 			for (offset_t i{}; 8 != i; ++i) {
 				if (miss.sibling[i]) {
 					auto node = map.sibling(miss.index, i);
@@ -524,26 +539,27 @@ void integrateMisses(Map& map, Misses misses, IntegrationParams const& params)
 					map.setModified(node);
 
 					if constexpr (IsOccupancyMap<Map>) {
-						map.decreaseOccupancyLogit(node, prob);
+						// map.decreaseOccupancyLogit(node, prob);
+						map.updateOccupancyLogit(node, prob);
 					}
 
-					if constexpr (IsTimeMap<Map>) {
-						map.setTime(node, time);
-					}
+					//  if constexpr (IsTimeMap<Map>) {
+					// 	 map.setTime(node, time);
+					//  }
 
-					if constexpr (IsReflectionMap<Map>) {
-						map.updateReflection(node, 0, 1);
-					}
+					//  if constexpr (IsReflectionMap<Map>) {
+					// 	 map.updateReflection(node, 0, 1);
+					//  }
 
-					if constexpr (IsFreeMap<Map>) {
-						map.updateFree(node, [freedom = miss.freedom](auto cur) {
-							return std::max(cur, freedom);
-						});
-					}
+					//  if constexpr (IsFreeMap<Map>) {
+					// 	 map.updateFree(node, [freedom = miss.freedom](auto cur) {
+					// 		 return std::max(cur, freedom);
+					// 	 });
+					//  }
 
-					if constexpr (IsSeenFreeMap<Map>) {
-						map.setSeenFree(node);
-					}
+					//  if constexpr (IsSeenFreeMap<Map>) {
+					// 	 map.setSeenFree(node);
+					//  }
 				}
 			}
 		}

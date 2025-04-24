@@ -211,13 +211,14 @@ class OctreeIteratorWrapper
 };
 
 template <class BaseNodeType, bool OnlyExists, bool EarlyStopping, class Tree,
-          class NodeType = Node, pred::Predicate<Tree, NodeType> Predicates = pred::TRUE>
+          class NodeType = Node, class Predicates = pred::TRUE>
 class OctreeIterator final : public OctreeIteratorBase<Tree, BaseNodeType>
 {
  private:
 	static constexpr bool OnlyLeavesOrFixedDepth =
-	    pred::contains_always_predicate_v<pred::PureLeaf, Predicates> ||
-	    pred::contains_always_predicate_v<pred::DepthE, Predicates> || EarlyStopping;
+	    ufo::pred::contains_always_predicate_v<ufo::pred::PureLeaf, Predicates> ||
+	    ufo::pred::contains_always_predicate_v<ufo::pred::DepthE, Predicates> ||
+	    EarlyStopping;
 
 	using Base = OctreeIteratorBase<Tree, BaseNodeType>;
 
@@ -323,14 +324,21 @@ class OctreeIterator final : public OctreeIteratorBase<Tree, BaseNodeType>
 	int                     return_index_{};
 };
 
+// template <class BaseNodeType,
+//           bool OnlyExists,
+//           bool EarlyStopping,
+//           class Tree,
+//           class NodeType = Node,
+//           class Predicates = pred::TRUE>
+
 template <bool OnlyExists, bool EarlyStopping, class Tree, class Geometry = Point,
-          pred::Predicate<Tree, NearestNode> Predicates = pred::TRUE>
+          class Predicates = pred::TRUE>
 class OctreeIteratorNearest final : public OctreeIteratorBase<Tree, NearestNode>
 {
  private:
 	static constexpr bool OnlyLeavesOrFixedDepth =
-	    pred::contains_always_predicate_v<pred::PureLeaf, Predicates> ||
-	    pred::contains_always_predicate_v<pred::DepthE, Predicates> || EarlyStopping;
+	    pred::contains_always_predicate_v<ufo::pred::PureLeaf, Predicates> ||
+	    pred::contains_always_predicate_v<ufo::pred::DepthE, Predicates> || EarlyStopping;
 
 	using Base = OctreeIteratorBase<Tree, NearestNode>;
 

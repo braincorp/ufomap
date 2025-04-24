@@ -43,7 +43,7 @@
 #define UFO_UTIL_ITERATOR_WRAPPER_HPP
 
 // STL
-#include <ranges>
+//  #include <ranges>
 #include <utility>
 
 namespace ufo
@@ -55,24 +55,24 @@ namespace ufo
  * @tparam The iterator that should be wrapped.
  */
 template <class Iterator>
-class IteratorWrapper : public std::ranges::view_interface<IteratorWrapper<Iterator>>
+class IteratorWrapper
 {
  public:
-	constexpr IteratorWrapper() = default;
+	IteratorWrapper() = default;
 
-	constexpr IteratorWrapper(Iterator const& first, Iterator const& last)
+	IteratorWrapper(const Iterator& first, const Iterator& last)
 	    : first_(first), last_(last)
 	{
 	}
 
-	constexpr IteratorWrapper(Iterator&& first, Iterator&& last)
+	IteratorWrapper(Iterator&& first, Iterator&& last)
 	    : first_(std::move(first)), last_(std::move(last))
 	{
 	}
 
-	auto begin() const { return first_; }
+	Iterator begin() const { return first_; }
 
-	auto end() const { return last_; }
+	Iterator end() const { return last_; }
 
  private:
 	Iterator first_;

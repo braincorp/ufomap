@@ -65,7 +65,7 @@ class BitSet
 	                       std::conditional_t<32 >= N, std::uint32_t, std::uint64_t>>>;
 
  private:
-	static constexpr T ALL_SET = ~(~T(0) << N);
+	static constexpr T ALL_SET = static_cast<T>(~(static_cast<T>(~T(0)) << N));
 
  public:
 	struct Reference {
@@ -157,10 +157,10 @@ class BitSet
 
 	[[nodiscard]] constexpr bool none() const noexcept { return !any(); }
 
-	[[nodiscard]] constexpr std::size_t count() const noexcept
-	{
-		return std::popcount(set_);
-	}
+	// [[nodiscard]] constexpr std::size_t count() const noexcept
+	// {
+	// 	return std::popcount(set_);
+	// }
 
 	[[nodiscard]] static constexpr std::size_t size() noexcept { return N; }
 
